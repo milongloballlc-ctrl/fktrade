@@ -18,7 +18,9 @@ triggers automatic redeploy.
 - `shipping.html`, `return-policy.html`, `terms.html` — policy pages, same simple text layout
 - `styles.css` — the single shared stylesheet, ~190 lines
 
-There is no JS file and no templating. Every page is standalone HTML.
+There is no separate JS file, no framework, and no templating. `catalog.html` has one
+small inline `<script>` (vanilla JS, no dependencies) that powers the category filter —
+see "Category filtering" below. Every page is otherwise standalone HTML.
 
 ## Design system (do not invent new styles)
 Colors are CSS variables in `:root` of `styles.css`:
@@ -31,7 +33,7 @@ instead of adding new CSS when possible.
 
 ## Product card pattern (catalog.html and index.html)
 ```html
-<div class="prod-card">
+<div class="prod-card" data-category="Home">
   <a href="product-SLUG.html">
     <div class="prod-img"><img src="IMage_URL" alt="Short name"></div>
     <div class="prod-body">
@@ -46,6 +48,21 @@ Category labels used in cards: Home, Tools, Pet, Toys, Office, Beauty.
 Full category names (used on product detail pages and categories.html):
 Home & Kitchen, Tools & Home Improvement, Pet Supplies, Toys & Games,
 Office Products, Beauty.
+
+The `data-category` attribute on `.prod-card` in `catalog.html` MUST always match the
+short label in that card's `.prod-cat` div exactly (same string). This is what the
+category filter script matches against — see "Category filtering" below.
+
+## Category filtering (catalog.html)
+The category grid on `index.html` and `categories.html` links each `.cat-card` to
+`catalog.html?cat=<ShortLabel>` (e.g. `catalog.html?cat=Pet`), using the same six short
+labels as `data-category`. In `catalog.html`, an inline script reads the `?cat=`
+query param on load, hides any `.prod-card` whose `data-category` doesn't match, and
+reveals a `#catFilterNotice` banner ("Showing category: X — Clear filter") by adding
+the `is-active` class. `.cat-card` is an `<a>` (not a `<div>`) — the anchor styling
+(no underline, inherits color, hover lift) lives in the `.cat-card` rules in
+`styles.css`. When adding a new product card, always set `data-category` to one of
+the six short labels above so it participates correctly in the filter.
 
 ## Product pages — IMPORTANT
 `product.html` is a template. It currently contains a visible placeholder banner
