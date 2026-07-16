@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
 
@@ -47,23 +48,10 @@
 
     <div class="checkout-form-col">
       <div class="payment-note">
-        <strong>Payment:</strong> we will contact you with payment instructions after you place your order, or pay by card now using the button below.
+        <strong>Payment:</strong> enter your details and card information below to complete your order.
       </div>
 
-      <div class="pay-by-card-block">
-        <button type="button" class="btn-primary" id="payByCardBtn">Pay by Card (Test)</button>
-        <div class="test-mode-note">Test mode — no real charges</div>
-      </div>
-
-      <div class="checkout-divider">or</div>
-
-      <form name="orders" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" action="/order-thanks.html" class="contact-form" id="checkoutForm">
-        <input type="hidden" name="form-name" value="orders">
-        <textarea name="order-items" id="orderItemsField" class="hidden" readonly></textarea>
-        <p class="hidden">
-          <label>Don't fill this out if you're human: <input name="bot-field"></label>
-        </p>
-
+      <form id="paymentForm" class="contact-form">
         <div class="form-row">
           <label for="co-name">Full name</label>
           <input type="text" id="co-name" name="name" required>
@@ -103,7 +91,14 @@
           <input type="text" id="co-country" name="country" value="United States" readonly>
         </div>
 
-        <button type="submit" class="btn-primary">Order Without Online Payment</button>
+        <div class="form-row">
+          <label>Card details</label>
+          <div id="payment-element"></div>
+        </div>
+        <div id="paymentMessage" class="payment-error" role="alert"></div>
+
+        <button type="submit" class="btn-primary" id="submitPayBtn" disabled>Pay $0.00</button>
+        <div class="test-mode-note">Test mode — no real charges</div>
       </form>
     </div>
 
@@ -151,76 +146,142 @@
 
 <script src="js/cart.js" defer></script>
 <script>
+// TODO: replace with your real Stripe test-mode publishable key (starts with "pk_test_").
+// This is a placeholder and will not work until swapped for a real key from the
+// Stripe Dashboard (Developers → API keys). Publishable keys are safe to expose
+// client-side — only the secret key (used in the Netlify Function) must stay private.
+var STRIPE_PUBLISHABLE_KEY = "pk_test_PLACEHOLDER";
+
 document.addEventListener('DOMContentLoaded', function () {
   var cart = FKCart.getCart();
   var list = document.getElementById('orderSummaryList');
+  var submitBtn = document.getElementById('submitPayBtn');
+  var messageBox = document.getElementById('paymentMessage');
+  var form = document.getElementById('paymentForm');
 
   if (cart.length === 0) {
     list.innerHTML = '<p class="order-summary-empty">Your cart is empty. <a href="catalog.html" style="color:var(--green); font-weight:600;">Browse the catalog</a> to add items.</p>';
-  } else {
-    list.innerHTML = cart.map(function (item) {
-      return '' +
-        '<div class="order-summary-row">' +
-          '<span>' + item.qty + '× ' + item.name + '</span>' +
-          '<span>' + FKCart.formatPrice(item.qty * item.price) + '</span>' +
-        '</div>';
-    }).join('');
+    form.style.display = 'none';
+    return;
   }
 
-  document.getElementById('orderTotal').textContent = FKCart.formatPrice(FKCart.cartSubtotal());
+  list.innerHTML = cart.map(function (item) {
+    return '' +
+      '<div class="order-summary-row">' +
+        '<span>' + item.qty + '× ' + item.name + '</span>' +
+        '<span>' + FKCart.formatPrice(item.qty * item.price) + '</span>' +
+      '</div>';
+  }).join('');
 
-  var form = document.getElementById('checkoutForm');
-  var itemsField = document.getElementById('orderItemsField');
+  var subtotal = FKCart.cartSubtotal();
+  document.getElementById('orderTotal').textContent = FKCart.formatPrice(subtotal);
+  submitBtn.textContent = 'Pay ' + FKCart.formatPrice(subtotal);
 
-  form.addEventListener('submit', function () {
-    var lines = cart.map(function (item) {
-      return item.qty + 'x ' + item.name + ' @ ' + FKCart.formatPrice(item.price) + ' = ' + FKCart.formatPrice(item.qty * item.price);
-    });
-    lines.push('Total: ' + FKCart.formatPrice(FKCart.cartSubtotal()));
-    itemsField.value = lines.join('\n');
+  var items = cart.map(function (item) {
+    return {
+      name: item.name,
+      price: Math.round(item.price * 100), // Stripe expects integer cents
+      qty: item.qty
+    };
   });
 
-  var payBtn = document.getElementById('payByCardBtn');
-  if (cart.length === 0) {
-    payBtn.disabled = true;
-  }
+  var stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+  var elements;
 
-  payBtn.addEventListener('click', function () {
-    if (cart.length === 0) return;
+  fetch('/.netlify/functions/create-payment-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: items })
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error('Unable to start payment');
+      return res.json();
+    })
+    .then(function (data) {
+      if (!data || !data.client_secret) throw new Error('No client secret returned');
 
-    var originalText = payBtn.textContent;
-    payBtn.disabled = true;
-    payBtn.textContent = 'Redirecting…';
+      elements = stripe.elements({
+        clientSecret: data.client_secret,
+        appearance: {
+          theme: 'stripe',
+          variables: {
+            colorPrimary: '#2F5D50',
+            colorBackground: '#FFFFFF',
+            colorText: '#21231F',
+            colorTextPlaceholder: '#5A5D55',
+            colorDanger: '#C0704A',
+            fontFamily: 'Inter, sans-serif',
+            borderRadius: '4px',
+            spacingUnit: '4px'
+          },
+          rules: {
+            '.Input': { border: '1px solid #E3DFD3', boxShadow: 'none' },
+            '.Input:focus': { border: '1px solid #2F5D50', boxShadow: 'none' },
+            '.Label': { fontWeight: '600', fontSize: '13px', color: '#21231F' }
+          }
+        }
+      });
 
-    var items = cart.map(function (item) {
-      return {
-        name: item.name,
-        price: Math.round(item.price * 100), // Stripe expects integer cents
-        qty: item.qty
-      };
+      var paymentElement = elements.create('payment');
+      paymentElement.mount('#payment-element');
+      submitBtn.disabled = false;
+    })
+    .catch(function () {
+      messageBox.textContent = 'Unable to load the payment form right now. Please refresh the page and try again.';
     });
 
-    fetch('/.netlify/functions/create-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: items })
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error('Checkout request failed');
-        return res.json();
-      })
-      .then(function (data) {
-        if (data && data.url) {
-          window.location.href = data.url;
-        } else {
-          throw new Error('No session URL returned');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    if (!elements) return;
+
+    messageBox.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Processing…';
+
+    var fullName = document.getElementById('co-name').value;
+    var email = document.getElementById('co-email').value;
+    var phone = document.getElementById('co-phone').value;
+    var address = {
+      line1: document.getElementById('co-address1').value,
+      line2: document.getElementById('co-address2').value,
+      city: document.getElementById('co-city').value,
+      state: document.getElementById('co-state').value,
+      postal_code: document.getElementById('co-zip').value,
+      country: 'US'
+    };
+
+    stripe.confirmPayment({
+      elements: elements,
+      confirmParams: {
+        return_url: 'https://fktrade.llc/order-thanks.html',
+        payment_method_data: {
+          billing_details: {
+            name: fullName,
+            email: email,
+            phone: phone,
+            address: address
+          }
+        },
+        shipping: {
+          name: fullName,
+          phone: phone,
+          address: address
         }
-      })
-      .catch(function () {
-        alert('Unable to start card payment right now. Please try again, or use "Order Without Online Payment" below.');
-        payBtn.disabled = false;
-        payBtn.textContent = originalText;
-      });
+      }
+    }).then(function (result) {
+      // Only reached for immediate errors (e.g. card declined). On success,
+      // Stripe redirects the browser to return_url and this code never runs.
+      if (result.error) {
+        messageBox.textContent = result.error.message || 'Payment failed. Please check your details and try again.';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Pay ' + FKCart.formatPrice(subtotal);
+      }
+    });
   });
 });
 </script>

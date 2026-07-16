@@ -3,14 +3,13 @@
 ## Purpose
 Static multi-page HTML/CSS website for FKTrade LLC (Wyoming-registered US company).
 Its primary job is to demonstrate business legitimacy to wholesale suppliers when
-applying for supplier accounts. It also runs a lightweight client-side cart and
-checkout flow (see "Cart architecture" below) so visitors can request an order
-directly, with two checkout paths: submit a Netlify form to be contacted for
-payment, or pay immediately via a Stripe Checkout redirect currently wired to
-Stripe **test mode** (see "Stripe Checkout (test mode)" below). There is still no
-database and no build step for the site itself — cart state lives entirely in the
-browser's `localStorage`; the one server-side piece is a single Netlify Function
-that talks to Stripe. No JS frameworks; vanilla JS only.
+applying for supplier accounts. It also runs a lightweight client-side cart and a
+single checkout flow (see "Cart architecture" below): one form collecting contact
+and US shipping details, with an embedded Stripe Payment Element for card payment,
+currently wired to Stripe **test mode** (see "Stripe Payment Element (test mode)"
+below). There is still no database and no build step for the site itself — cart
+state lives entirely in the browser's `localStorage`; the one server-side piece is
+a single Netlify Function that talks to Stripe. No JS frameworks; vanilla JS only.
 
 Hosted as plain static files (GitHub Pages / Netlify). A push to the main branch
 triggers automatic redeploy.
@@ -22,15 +21,16 @@ triggers automatic redeploy.
 - `product.html` — product detail TEMPLATE (see "Product pages" below)
 - `product-<slug>.html` — real product detail pages, each with an Add to Cart button
 - `cart.html` — cart page: line items, quantity editor, remove, subtotal, checkout link
-- `checkout.html` — order summary + Netlify order form (contact + US shipping address)
+- `checkout.html` — order summary + single form (contact + US shipping address +
+  embedded Stripe Payment Element); see "Stripe Payment Element (test mode)"
 - `order-thanks.html` — order confirmation; clears the cart on load
-- `thanks.html` — confirmation page for the general contact form (not the order form)
+- `thanks.html` — confirmation page for the general contact form (unrelated to orders)
 - `about.html` — company story
 - `shipping.html`, `return-policy.html`, `terms.html` — policy pages, same simple text layout
 - `styles.css` — the single shared stylesheet
 - `js/cart.js` — the cart logic, included on every page (see "Cart architecture")
-- `netlify/functions/create-checkout.js` — Netlify Function creating a Stripe
-  Checkout Session (test mode); see "Stripe Checkout (test mode)"
+- `netlify/functions/create-payment-intent.js` — Netlify Function creating a Stripe
+  PaymentIntent (test mode); see "Stripe Payment Element (test mode)"
 - `package.json` — declares the `stripe` npm dependency for the function above
 - `netlify.toml` — tells Netlify's build where the functions directory is
 
@@ -116,43 +116,65 @@ product is deduplicated (qty increment) regardless of which page it was added fr
 `FKCart.getCart()` — there is no shared render function, since each page's markup
 differs (editable rows vs. read-only summary vs. clear-on-load).
 
-**checkout.html's order form** is a Netlify form (`name="orders"`,
-`data-netlify="true"`, honeypot via `data-netlify-honeypot="bot-field"` +
-hidden `bot-field` input, `action="/order-thanks.html"`). Before submit, an inline
-script serializes the cart into the form's `<textarea name="order-items">` (hidden
-via the `.hidden` class) as human-readable lines, so the Netlify form notification
-email shows what was ordered. This form is the "Order Without Online Payment" path,
-offered as an alternative to the Stripe card-payment button above it — see
-"Stripe Checkout (test mode)" below.
+**checkout.html** has exactly one path to complete an order: a single `<form
+id="paymentForm">` with contact fields (name, email, phone) and a US shipping
+address, followed by an embedded Stripe Payment Element and a "Pay $&lt;total&gt;"
+submit button. There is no Netlify form and no "pay later" alternative on this
+page — see "Stripe Payment Element (test mode)" below for the full flow.
 
-## Stripe Checkout (test mode)
-`checkout.html` has a "Pay by Card (Test)" button (`#payByCardBtn`) above the order
-form, with a visible "Test mode — no real charges" note (`.test-mode-note`). On
-click, its inline script converts the cart to `{name, price, qty}` with `price` in
-**integer cents** (`Math.round(dollars * 100)` — the cart itself still stores
-dollars, per "Cart architecture" above) and POSTs `{ items: [...] }` as JSON to
-`/.netlify/functions/create-checkout`. On success it redirects the browser to the
-returned `url` (the Stripe-hosted Checkout page); on failure it shows an alert and
-points the shopper at the "Order Without Online Payment" form instead — the two
-payment paths are independent, so one failing doesn't block the other.
+## Stripe Payment Element (test mode)
+`checkout.html` loads `https://js.stripe.com/v3/` directly in `<head>` (per
+Stripe's guidance, not deferred/self-hosted) and initializes it with a publishable
+key placeholder declared at the top of the page's inline script:
+```js
+var STRIPE_PUBLISHABLE_KEY = "pk_test_PLACEHOLDER";
+```
+**This must be swapped for a real Stripe test-mode publishable key** (Dashboard →
+Developers → API keys) before the payment form will work. Publishable keys are
+safe to expose client-side, unlike the secret key used in the Netlify Function.
 
-`netlify/functions/create-checkout.js` is the Node Netlify Function backing that
-endpoint:
+Flow, on page load (only if the cart is non-empty — otherwise the form is hidden
+and an empty-cart message is shown, same as before):
+1. Convert the cart to `{name, price, qty}` with `price` in **integer cents**
+   (`Math.round(dollars * 100)` — the cart itself still stores dollars, per "Cart
+   architecture" above) and POST `{ items: [...] }` to
+   `/.netlify/functions/create-payment-intent`.
+2. Use the returned `client_secret` to call `stripe.elements({ clientSecret,
+   appearance })`, with the `appearance` object's `variables`/`rules` mapped to
+   `styles.css`'s color tokens (`--green`, `--ink`, `--line`, etc.) and `Inter` as
+   the font, so the embedded card fields match the site's look.
+3. Mount the Payment Element into `#payment-element` and enable the submit button
+   (`#submitPayBtn`, disabled until the element is ready).
+
+On submit: native `required` validation runs first (`form.checkValidity()` /
+`reportValidity()`); if valid, the button is disabled and shows "Processing…",
+then `stripe.confirmPayment({ elements, confirmParams: { return_url:
+'https://fktrade.llc/order-thanks.html', payment_method_data: { billing_details },
+shipping } })` is called with the name/email/phone/address field values. On a
+declined card or validation error, Stripe resolves with `result.error` and the
+message is shown in `#paymentMessage` (`.payment-error`) with the button
+re-enabled; on success, Stripe redirects the browser to `return_url` itself (the
+`.then()` callback is not reached). The "Test mode — no real charges" note
+(`.test-mode-note`) sits directly under the pay button.
+
+`netlify/functions/create-payment-intent.js` is the Node Netlify Function backing
+the endpoint used in step 1:
 - Reads the Stripe secret key from `process.env.STRIPE_SECRET_KEY` — **never commit
   a real key to this repo**. Test-mode keys start with `sk_test_`; set the real
   value only in the Netlify site's environment variables (Site settings →
   Environment variables), not in `netlify.toml` or any tracked file.
 - Rejects anything but `POST`, invalid JSON, an empty/missing `items` array, and any
-  item whose `name` is blank or whose `price`/`qty` isn't a positive integer.
-- Builds Stripe line items with `price_data` (`currency: 'usd'`, `product_data.name`,
-  `unit_amount` = the cents value from the client), `mode: 'payment'`, and fixed
-  `success_url`/`cancel_url` pointing at `https://fktrade.llc/order-thanks.html` and
-  `https://fktrade.llc/cart.html`.
-- Returns `{ url: session.url }` as JSON on success, or a 4xx/5xx JSON error.
-- **TODO before going live**: the function currently trusts the price the client
-  sends. Before this leaves test mode, line-item prices must be looked up
-  server-side from a fixed product list (e.g. keyed by slug/SKU) instead of taking
-  `item.price` from the request, otherwise a caller can submit an arbitrary price.
+  item whose `price`/`qty` isn't a positive integer.
+- Computes the total `amount` (integer cents) itself by summing `price * qty`
+  server-side, rather than trusting a client-sent total.
+- Creates a PaymentIntent with `currency: 'usd'` and `automatic_payment_methods:
+  { enabled: true }`, and returns `{ client_secret: paymentIntent.client_secret }`
+  as JSON on success, or a 4xx/5xx JSON error.
+- **TODO before going live**: the function currently trusts the per-item price the
+  client sends when computing the total. Before this leaves test mode, prices must
+  be looked up server-side from a fixed product list (e.g. keyed by slug/SKU)
+  instead of taking `item.price` from the request, otherwise a caller can submit
+  an arbitrary amount.
 
 `package.json` declares the `stripe` npm dependency; `netlify.toml` sets
 `functions = "netlify/functions"` so Netlify's build picks up the function. There is

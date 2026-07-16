@@ -249,18 +249,16 @@ header{
   padding:14px 16px; border-radius:5px; font-size:13.5px; margin-bottom:20px;
 }
 .payment-note strong{ color:var(--ink); }
-.pay-by-card-block{ margin-bottom:8px; }
-.pay-by-card-block .btn-primary{ border:none; cursor:pointer; width:100%; text-align:center; }
-.pay-by-card-block .btn-primary:disabled{ opacity:0.6; cursor:not-allowed; }
+.form-row-split{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+#payment-element{ margin-top:4px; }
+.payment-error{ color:var(--rust); font-size:13px; margin:12px 0; min-height:1em; }
+#submitPayBtn{
+  width:100%; text-align:center; border:none; cursor:pointer; margin-top:8px;
+}
+#submitPayBtn:disabled{ opacity:0.6; cursor:not-allowed; }
 .test-mode-note{
   color:var(--rust); font-size:12.5px; font-weight:600; margin-top:8px; text-align:center;
 }
-.form-row-split{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
-.checkout-divider{
-  display:flex; align-items:center; gap:12px; color:var(--ink-soft); font-size:13px;
-  margin:24px 0; text-transform:uppercase; letter-spacing:0.6px;
-}
-.checkout-divider::before, .checkout-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
 
 /* footer */
 footer{ padding:48px 0 40px; }
