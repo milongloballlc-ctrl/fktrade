@@ -47,10 +47,15 @@
 
     <div class="checkout-form-col">
       <div class="payment-note">
-        <strong>Payment:</strong> we will contact you with payment instructions after you place your order.
+        <strong>Payment:</strong> we will contact you with payment instructions after you place your order, or pay by card now using the button below.
       </div>
 
-      <!-- TODO: integrate Stripe Checkout redirect here as an additional "Pay by card" option, alongside the order form below. -->
+      <div class="pay-by-card-block">
+        <button type="button" class="btn-primary" id="payByCardBtn">Pay by Card (Test)</button>
+        <div class="test-mode-note">Test mode — no real charges</div>
+      </div>
+
+      <div class="checkout-divider">or</div>
 
       <form name="orders" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" action="/order-thanks.html" class="contact-form" id="checkoutForm">
         <input type="hidden" name="form-name" value="orders">
@@ -173,6 +178,49 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     lines.push('Total: ' + FKCart.formatPrice(FKCart.cartSubtotal()));
     itemsField.value = lines.join('\n');
+  });
+
+  var payBtn = document.getElementById('payByCardBtn');
+  if (cart.length === 0) {
+    payBtn.disabled = true;
+  }
+
+  payBtn.addEventListener('click', function () {
+    if (cart.length === 0) return;
+
+    var originalText = payBtn.textContent;
+    payBtn.disabled = true;
+    payBtn.textContent = 'Redirecting…';
+
+    var items = cart.map(function (item) {
+      return {
+        name: item.name,
+        price: Math.round(item.price * 100), // Stripe expects integer cents
+        qty: item.qty
+      };
+    });
+
+    fetch('/.netlify/functions/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items })
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('Checkout request failed');
+        return res.json();
+      })
+      .then(function (data) {
+        if (data && data.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error('No session URL returned');
+        }
+      })
+      .catch(function () {
+        alert('Unable to start card payment right now. Please try again, or use "Order Without Online Payment" below.');
+        payBtn.disabled = false;
+        payBtn.textContent = originalText;
+      });
   });
 });
 </script>

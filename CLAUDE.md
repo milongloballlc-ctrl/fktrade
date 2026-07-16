@@ -5,9 +5,12 @@ Static multi-page HTML/CSS website for FKTrade LLC (Wyoming-registered US compan
 Its primary job is to demonstrate business legitimacy to wholesale suppliers when
 applying for supplier accounts. It also runs a lightweight client-side cart and
 checkout flow (see "Cart architecture" below) so visitors can request an order
-directly. There is still no backend, no database, and no build step — cart state
-lives entirely in the browser's `localStorage`, and "checkout" submits to a Netlify
-form rather than a real payment processor. No JS frameworks; vanilla JS only.
+directly, with two checkout paths: submit a Netlify form to be contacted for
+payment, or pay immediately via a Stripe Checkout redirect currently wired to
+Stripe **test mode** (see "Stripe Checkout (test mode)" below). There is still no
+database and no build step for the site itself — cart state lives entirely in the
+browser's `localStorage`; the one server-side piece is a single Netlify Function
+that talks to Stripe. No JS frameworks; vanilla JS only.
 
 Hosted as plain static files (GitHub Pages / Netlify). A push to the main branch
 triggers automatic redeploy.
@@ -26,6 +29,10 @@ triggers automatic redeploy.
 - `shipping.html`, `return-policy.html`, `terms.html` — policy pages, same simple text layout
 - `styles.css` — the single shared stylesheet
 - `js/cart.js` — the cart logic, included on every page (see "Cart architecture")
+- `netlify/functions/create-checkout.js` — Netlify Function creating a Stripe
+  Checkout Session (test mode); see "Stripe Checkout (test mode)"
+- `package.json` — declares the `stripe` npm dependency for the function above
+- `netlify.toml` — tells Netlify's build where the functions directory is
 
 There is no framework and no templating; every page is standalone HTML. `js/cart.js`
 is the one shared script, included via `<script src="js/cart.js" defer></script>`
@@ -114,9 +121,43 @@ differs (editable rows vs. read-only summary vs. clear-on-load).
 hidden `bot-field` input, `action="/order-thanks.html"`). Before submit, an inline
 script serializes the cart into the form's `<textarea name="order-items">` (hidden
 via the `.hidden` class) as human-readable lines, so the Netlify form notification
-email shows what was ordered. This form is the "order without online payment" path;
-a `<!-- TODO -->` comment above it marks where a Stripe Checkout redirect (card
-payment) will be added as an alternative option later.
+email shows what was ordered. This form is the "Order Without Online Payment" path,
+offered as an alternative to the Stripe card-payment button above it — see
+"Stripe Checkout (test mode)" below.
+
+## Stripe Checkout (test mode)
+`checkout.html` has a "Pay by Card (Test)" button (`#payByCardBtn`) above the order
+form, with a visible "Test mode — no real charges" note (`.test-mode-note`). On
+click, its inline script converts the cart to `{name, price, qty}` with `price` in
+**integer cents** (`Math.round(dollars * 100)` — the cart itself still stores
+dollars, per "Cart architecture" above) and POSTs `{ items: [...] }` as JSON to
+`/.netlify/functions/create-checkout`. On success it redirects the browser to the
+returned `url` (the Stripe-hosted Checkout page); on failure it shows an alert and
+points the shopper at the "Order Without Online Payment" form instead — the two
+payment paths are independent, so one failing doesn't block the other.
+
+`netlify/functions/create-checkout.js` is the Node Netlify Function backing that
+endpoint:
+- Reads the Stripe secret key from `process.env.STRIPE_SECRET_KEY` — **never commit
+  a real key to this repo**. Test-mode keys start with `sk_test_`; set the real
+  value only in the Netlify site's environment variables (Site settings →
+  Environment variables), not in `netlify.toml` or any tracked file.
+- Rejects anything but `POST`, invalid JSON, an empty/missing `items` array, and any
+  item whose `name` is blank or whose `price`/`qty` isn't a positive integer.
+- Builds Stripe line items with `price_data` (`currency: 'usd'`, `product_data.name`,
+  `unit_amount` = the cents value from the client), `mode: 'payment'`, and fixed
+  `success_url`/`cancel_url` pointing at `https://fktrade.llc/order-thanks.html` and
+  `https://fktrade.llc/cart.html`.
+- Returns `{ url: session.url }` as JSON on success, or a 4xx/5xx JSON error.
+- **TODO before going live**: the function currently trusts the price the client
+  sends. Before this leaves test mode, line-item prices must be looked up
+  server-side from a fixed product list (e.g. keyed by slug/SKU) instead of taking
+  `item.price` from the request, otherwise a caller can submit an arbitrary price.
+
+`package.json` declares the `stripe` npm dependency; `netlify.toml` sets
+`functions = "netlify/functions"` so Netlify's build picks up the function. There is
+still no bundler/build step for the site itself — `netlify.toml`'s `publish = "."`
+serves the repo root as-is.
 
 ## Product pages — IMPORTANT
 `product.html` is a template. It currently contains a visible placeholder banner

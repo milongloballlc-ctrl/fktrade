@@ -1,0 +1,9 @@
+{
+  "name": "fktrade-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FKTrade LLC showcase site — static HTML/CSS with a client-side cart and a Netlify Function for Stripe Checkout (test mode).",
+  "dependencies": {
+    "stripe": ">=14.0.0"
+  }
+}
