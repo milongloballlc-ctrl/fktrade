@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cart — FKTrade LLC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a href="index.html" class="brand">FK<span>Trade</span></a>
+    <ul>
+      <li><a href="categories.html">Categories</a></li>
+      <li><a href="catalog.html">Products</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="index.html#contact">Contact</a></li>
+    </ul>
+    <a href="cart.html" class="nav-cart" aria-label="Cart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.2a2 2 0 002 1.8h7.6a2 2 0 002-1.7L20 8H6"/></svg>
+      <span class="cart-badge" id="cartBadge">0</span>
+    </a>
+  </div>
+</header>
+
+<div class="wrap breadcrumb"><a href="index.html">Home</a> / Cart</div>
+
+<section class="page-hero">
+  <div class="wrap">
+    <div class="eyebrow">Your Order</div>
+    <h1>Cart</h1>
+    <p>Review your items before checkout.</p>
+  </div>
+</section>
+
+<section class="cart-page">
+  <div class="wrap">
+
+    <div id="cartEmpty" class="cart-empty" style="display:none;">
+      <p>Your cart is empty.</p>
+      <a href="catalog.html" class="btn-primary">Browse Catalog</a>
+    </div>
+
+    <div id="cartContent">
+      <div class="cart-list" id="cartList"></div>
+      <div class="cart-summary">
+        <div class="cart-subtotal-row"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
+        <div class="cart-actions">
+          <a href="catalog.html" class="btn-secondary">Continue Shopping</a>
+          <a href="checkout.html" class="btn-primary">Proceed to Checkout</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="brand">FK<span>Trade</span></div>
+        <p>Home goods, tools, pet supplies, toys, and office products. Open to working with new suppliers.</p>
+      </div>
+      <div>
+        <h4>Sections</h4>
+        <ul>
+          <li><a href="categories.html">Categories</a></li>
+          <li><a href="catalog.html">Catalog</a></li>
+          <li><a href="about.html">About</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="terms.html">Terms of Service</a></li>
+          <li><a href="return-policy.html">Return Policy</a></li>
+          <li><a href="shipping.html">Shipping</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li>info@fktrade.llc</li>
+          <li>Mon–Fri, 9:00–18:00 EST</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 FKTrade LLC</span>
+      <span>Registered business in the United States</span>
+      <span>Legal name: FKTrade LLC</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/cart.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function render() {
+    var cart = FKCart.getCart();
+    var list = document.getElementById('cartList');
+    var empty = document.getElementById('cartEmpty');
+    var content = document.getElementById('cartContent');
+
+    if (cart.length === 0) {
+      empty.style.display = 'block';
+      content.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    content.style.display = 'block';
+
+    list.innerHTML = cart.map(function (item) {
+      var lineTotal = item.qty * item.price;
+      return '' +
+        '<div class="cart-item" data-slug="' + item.slug + '">' +
+          '<div class="cart-item-img"><img src="' + item.image + '" alt="' + item.name + '"></div>' +
+          '<div class="cart-item-body">' +
+            '<div class="cart-item-name">' + item.name + '</div>' +
+            '<div class="cart-item-price">' + FKCart.formatPrice(item.price) + ' each</div>' +
+          '</div>' +
+          '<div class="cart-item-qty">' +
+            '<button type="button" class="qty-btn" data-qty-decrease>−</button>' +
+            '<input type="number" min="1" value="' + item.qty + '" class="qty-input" data-qty-input>' +
+            '<button type="button" class="qty-btn" data-qty-increase>+</button>' +
+          '</div>' +
+          '<div class="cart-item-line-total">' + FKCart.formatPrice(lineTotal) + '</div>' +
+          '<button type="button" class="cart-item-remove" data-remove>Remove</button>' +
+        '</div>';
+    }).join('');
+
+    document.getElementById('cartSubtotal').textContent = FKCart.formatPrice(FKCart.cartSubtotal());
+
+    list.querySelectorAll('.cart-item').forEach(function (row) {
+      var slug = row.getAttribute('data-slug');
+      var input = row.querySelector('[data-qty-input]');
+
+      row.querySelector('[data-qty-increase]').addEventListener('click', function () {
+        FKCart.updateQty(slug, parseInt(input.value, 10) + 1);
+        render();
+      });
+      row.querySelector('[data-qty-decrease]').addEventListener('click', function () {
+        FKCart.updateQty(slug, parseInt(input.value, 10) - 1);
+        render();
+      });
+      input.addEventListener('change', function () {
+        FKCart.updateQty(slug, input.value);
+        render();
+      });
+      row.querySelector('[data-remove]').addEventListener('click', function () {
+        FKCart.removeFromCart(slug);
+        render();
+      });
+    });
+  }
+
+  render();
+});
+</script>
+
+</body>
+</html>

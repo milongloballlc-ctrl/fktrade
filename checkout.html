@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — FKTrade LLC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a href="index.html" class="brand">FK<span>Trade</span></a>
+    <ul>
+      <li><a href="categories.html">Categories</a></li>
+      <li><a href="catalog.html">Products</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="index.html#contact">Contact</a></li>
+    </ul>
+    <a href="cart.html" class="nav-cart" aria-label="Cart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.2a2 2 0 002 1.8h7.6a2 2 0 002-1.7L20 8H6"/></svg>
+      <span class="cart-badge" id="cartBadge">0</span>
+    </a>
+  </div>
+</header>
+
+<div class="wrap breadcrumb"><a href="index.html">Home</a> / <a href="cart.html">Cart</a> / Checkout</div>
+
+<section class="page-hero">
+  <div class="wrap">
+    <div class="eyebrow">Almost Done</div>
+    <h1>Checkout</h1>
+    <p>Confirm your order and shipping details below.</p>
+  </div>
+</section>
+
+<section class="checkout-page">
+  <div class="wrap checkout-grid">
+
+    <div class="order-summary">
+      <h2>Order Summary</h2>
+      <div class="order-summary-list" id="orderSummaryList"></div>
+      <div class="order-summary-total"><span>Total</span><span id="orderTotal">$0.00</span></div>
+    </div>
+
+    <div class="checkout-form-col">
+      <div class="payment-note">
+        <strong>Payment:</strong> we will contact you with payment instructions after you place your order.
+      </div>
+
+      <!-- TODO: integrate Stripe Checkout redirect here as an additional "Pay by card" option, alongside the order form below. -->
+
+      <form name="orders" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" action="/order-thanks.html" class="contact-form" id="checkoutForm">
+        <input type="hidden" name="form-name" value="orders">
+        <textarea name="order-items" id="orderItemsField" class="hidden" readonly></textarea>
+        <p class="hidden">
+          <label>Don't fill this out if you're human: <input name="bot-field"></label>
+        </p>
+
+        <div class="form-row">
+          <label for="co-name">Full name</label>
+          <input type="text" id="co-name" name="name" required>
+        </div>
+        <div class="form-row">
+          <label for="co-email">Email</label>
+          <input type="email" id="co-email" name="email" required>
+        </div>
+        <div class="form-row">
+          <label for="co-phone">Phone</label>
+          <input type="tel" id="co-phone" name="phone">
+        </div>
+        <div class="form-row">
+          <label for="co-address1">Address</label>
+          <input type="text" id="co-address1" name="address1" required>
+        </div>
+        <div class="form-row">
+          <label for="co-address2">Address line 2 (optional)</label>
+          <input type="text" id="co-address2" name="address2">
+        </div>
+        <div class="form-row-split">
+          <div class="form-row">
+            <label for="co-city">City</label>
+            <input type="text" id="co-city" name="city" required>
+          </div>
+          <div class="form-row">
+            <label for="co-state">State</label>
+            <input type="text" id="co-state" name="state" required>
+          </div>
+          <div class="form-row">
+            <label for="co-zip">ZIP code</label>
+            <input type="text" id="co-zip" name="zip" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="co-country">Country</label>
+          <input type="text" id="co-country" name="country" value="United States" readonly>
+        </div>
+
+        <button type="submit" class="btn-primary">Order Without Online Payment</button>
+      </form>
+    </div>
+
+  </div>
+</section>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="brand">FK<span>Trade</span></div>
+        <p>Home goods, tools, pet supplies, toys, and office products. Open to working with new suppliers.</p>
+      </div>
+      <div>
+        <h4>Sections</h4>
+        <ul>
+          <li><a href="categories.html">Categories</a></li>
+          <li><a href="catalog.html">Catalog</a></li>
+          <li><a href="about.html">About</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="terms.html">Terms of Service</a></li>
+          <li><a href="return-policy.html">Return Policy</a></li>
+          <li><a href="shipping.html">Shipping</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li>info@fktrade.llc</li>
+          <li>Mon–Fri, 9:00–18:00 EST</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 FKTrade LLC</span>
+      <span>Registered business in the United States</span>
+      <span>Legal name: FKTrade LLC</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/cart.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var cart = FKCart.getCart();
+  var list = document.getElementById('orderSummaryList');
+
+  if (cart.length === 0) {
+    list.innerHTML = '<p class="order-summary-empty">Your cart is empty. <a href="catalog.html" style="color:var(--green); font-weight:600;">Browse the catalog</a> to add items.</p>';
+  } else {
+    list.innerHTML = cart.map(function (item) {
+      return '' +
+        '<div class="order-summary-row">' +
+          '<span>' + item.qty + '× ' + item.name + '</span>' +
+          '<span>' + FKCart.formatPrice(item.qty * item.price) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  document.getElementById('orderTotal').textContent = FKCart.formatPrice(FKCart.cartSubtotal());
+
+  var form = document.getElementById('checkoutForm');
+  var itemsField = document.getElementById('orderItemsField');
+
+  form.addEventListener('submit', function () {
+    var lines = cart.map(function (item) {
+      return item.qty + 'x ' + item.name + ' @ ' + FKCart.formatPrice(item.price) + ' = ' + FKCart.formatPrice(item.qty * item.price);
+    });
+    lines.push('Total: ' + FKCart.formatPrice(FKCart.cartSubtotal()));
+    itemsField.value = lines.join('\n');
+  });
+});
+</script>
+
+</body>
+</html>

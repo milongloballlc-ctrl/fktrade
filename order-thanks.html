@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Airtight Storage Container Set — FKTrade LLC</title>
+<title>Order Received — FKTrade LLC</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
@@ -15,7 +15,7 @@
     <a href="index.html" class="brand">FK<span>Trade</span></a>
     <ul>
       <li><a href="categories.html">Categories</a></li>
-      <li><a href="catalog.html" class="active">Products</a></li>
+      <li><a href="catalog.html">Products</a></li>
       <li><a href="about.html">About</a></li>
       <li><a href="index.html#contact">Contact</a></li>
     </ul>
@@ -26,37 +26,20 @@
   </div>
 </header>
 
-<div class="wrap breadcrumb"><a href="index.html">Home</a> / <a href="catalog.html">Catalog</a> / Airtight Storage Container Set</div>
+<div class="wrap breadcrumb"><a href="index.html">Home</a> / Order Received</div>
 
-<section class="product-detail">
+<section class="page-hero">
   <div class="wrap">
+    <div class="eyebrow">Order Received</div>
+    <h1>Thank you for your order</h1>
+    <p>We've received your order details and will follow up by email with confirmation and payment instructions.</p>
+  </div>
+</section>
 
-    <div class="product-gallery">
-      <img src="https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=900&q=80" alt="Airtight Storage Container Set">
-    </div>
-
-    <div class="product-info">
-      <div class="prod-cat">Home &amp; Kitchen</div>
-      <h1>Airtight Storage Container Set</h1>
-      <div class="product-price-lg">$32.00</div>
-
-      <p class="product-desc">A set of stackable airtight containers for storing dry pantry goods such as rice, flour, cereal, and pasta. Each lid uses a latch and silicone gasket to reduce air exposure and keep contents fresh longer between openings.</p>
-
-      <ul class="spec-list">
-        <li><span>Material</span><span>BPA-free plastic body, silicone gasket</span></li>
-        <li><span>Set size</span><span>6 containers, assorted sizes</span></li>
-        <li><span>Color</span><span>Clear body, white lids</span></li>
-        <li><span>SKU</span><span>FK-HK-1005</span></li>
-        <li><span>Category</span><span>Home &amp; Kitchen</span></li>
-      </ul>
-
-      <div class="product-actions">
-        <button type="button" class="btn-primary" data-add-to-cart data-slug="storage-container-set" data-name="Airtight Storage Container Set" data-price="32.00" data-image="https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=900&q=80">Add to Cart</button>
-        <a href="index.html#contact" class="btn-secondary">Inquire About This Product</a>
-        <a href="catalog.html" class="btn-secondary">Back to Catalog</a>
-      </div>
-    </div>
-
+<section class="legal">
+  <div class="wrap">
+    <p>If you have questions in the meantime, contact <a href="mailto:info@fktrade.llc" style="color:var(--green); font-weight:600;">info@fktrade.llc</a>.</p>
+    <p style="margin-top:18px;"><a href="catalog.html" class="btn-primary">Continue Shopping</a></p>
   </div>
 </section>
 
@@ -100,6 +83,11 @@
 </footer>
 
 <script src="js/cart.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  FKCart.clearCart();
+});
+</script>
 
 </body>
 </html>
