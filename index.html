@@ -163,7 +163,41 @@
   </div>
 </section>
 
-<footer id="contact">
+<section class="contact-section" id="contact">
+  <div class="wrap">
+    <div class="contact-intro">
+      <div class="eyebrow">Get In Touch</div>
+      <h2>Contact FKTrade LLC</h2>
+      <p>FKTrade LLC works directly with suppliers, wholesalers, and marketplace partners across our six categories. Send a message about sourcing, a specific product, or a new supplier introduction, and we'll reply within one to two business days.</p>
+      <p>Prefer email? Reach us directly at <a href="mailto:info@fktrade.llc" class="contact-email">info@fktrade.llc</a></p>
+    </div>
+    <form name="contact" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" action="/thanks.html" class="contact-form">
+      <input type="hidden" name="form-name" value="contact">
+      <p class="hidden">
+        <label>Don't fill this out if you're human: <input name="bot-field"></label>
+      </p>
+      <div class="form-row">
+        <label for="cf-name">Name</label>
+        <input type="text" id="cf-name" name="name" required>
+      </div>
+      <div class="form-row">
+        <label for="cf-company">Company</label>
+        <input type="text" id="cf-company" name="company">
+      </div>
+      <div class="form-row">
+        <label for="cf-email">Email</label>
+        <input type="email" id="cf-email" name="email" required>
+      </div>
+      <div class="form-row">
+        <label for="cf-message">Message</label>
+        <textarea id="cf-message" name="message" rows="5" required></textarea>
+      </div>
+      <button type="submit" class="btn-primary">Send Message</button>
+    </form>
+  </div>
+</section>
+
+<footer>
   <div class="wrap">
     <div class="foot-grid">
       <div class="foot-brand">

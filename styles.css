@@ -173,6 +173,24 @@ header{
   padding:12px 16px; border-radius:5px; font-size:13px; margin-bottom:20px;
 }
 
+/* contact section */
+.contact-section{ padding:64px 0 72px; border-top:1px solid var(--line); }
+.contact-section .wrap{ display:grid; grid-template-columns:1fr 1.15fr; gap:56px; align-items:start; }
+.contact-intro h2{ font-size:26px; font-weight:600; margin-bottom:14px; }
+.contact-intro p{ color:var(--ink-soft); font-size:15px; margin-bottom:14px; line-height:1.7; }
+.contact-email{ font-weight:600; color:var(--green-deep); }
+.contact-form{ display:flex; flex-direction:column; gap:16px; }
+.form-row{ display:flex; flex-direction:column; gap:6px; }
+.form-row label{ font-size:13px; font-weight:600; color:var(--ink); }
+.form-row input, .form-row textarea{
+  border:1px solid var(--line); border-radius:4px; padding:11px 13px; font-family:'Inter', sans-serif;
+  font-size:14.5px; color:var(--ink); background:#fff; width:100%;
+}
+.form-row input:focus, .form-row textarea:focus{ outline:none; border-color:var(--green); }
+.form-row textarea{ resize:vertical; min-height:120px; }
+.contact-form button{ align-self:flex-start; border:none; cursor:pointer; }
+.hidden{ display:none; }
+
 /* footer */
 footer{ padding:48px 0 40px; }
 .foot-grid{ display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; margin-bottom:36px; }
@@ -195,4 +213,5 @@ footer ul li a:hover{ color:var(--green); }
   .about .wrap{ grid-template-columns:1fr; }
   .product-detail .wrap{ grid-template-columns:1fr; }
   .foot-grid{ grid-template-columns:1fr 1fr; }
+  .contact-section .wrap{ grid-template-columns:1fr; }
 }
