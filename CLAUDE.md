@@ -154,8 +154,7 @@ shipping } })` is called with the name/email/phone/address field values. On a
 declined card or validation error, Stripe resolves with `result.error` and the
 message is shown in `#paymentMessage` (`.payment-error`) with the button
 re-enabled; on success, Stripe redirects the browser to `return_url` itself (the
-`.then()` callback is not reached). The "Test mode — no real charges" note
-(`.test-mode-note`) sits directly under the pay button.
+`.then()` callback is not reached).
 
 `netlify/functions/create-payment-intent.js` is the Node Netlify Function backing
 the endpoint used in step 1:
