@@ -221,7 +221,7 @@ serves the repo root as-is.
 placeholders like `[Replace with real product description.]`, `[SKU]`.
 
 When creating a real product page:
-1. Copy `product.html` to `product-<slug>.html` (e.g. `product-spice-organizer.html`).
+1. Copy `product.html` to `product-<slug>.html` (e.g. `product-cocobeauty-blur-primer.html`).
 2. Remove the `.placeholder-note` div entirely.
 3. Fill in: `<title>`, breadcrumb, image, `.prod-cat`, `<h1>`, price, description,
    and every `<li>` in `.spec-list` with real values. No brackets may remain.
@@ -285,7 +285,7 @@ exists in `styles.css`) for anything that must stay in the DOM and off-screen.
 Current images are hotlinked from Unsplash (stock photos). This is a known weakness
 for a legitimacy-facing site. When adding real products, prefer downloading images
 into a local `img/` folder and referencing them relatively, keeping filenames
-slug-based (`img/spice-organizer.jpg`). Do not hotlink new Unsplash URLs for real
+slug-based (`img/cocobeauty-blur-primer.jpg`). Do not hotlink new Unsplash URLs for real
 products.
 
 ## Tone and content rules
