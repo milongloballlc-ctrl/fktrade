@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="description" content="Browse FKTrade LLC's full product catalog across home, tools, pet supplies, toys, office, and beauty categories, with search, sort, and category filtering.">
 <title>Catalog — FKTrade LLC</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -38,10 +40,20 @@
 
 <section class="products">
   <div class="wrap">
+    <div class="catalog-toolbar">
+      <input type="search" id="catalogSearch" class="catalog-search" placeholder="Search products…" aria-label="Search products">
+      <select id="catalogSort" class="catalog-sort" aria-label="Sort products">
+        <option value="default">Sort: Featured</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="name-asc">Name: A-Z</option>
+      </select>
+    </div>
     <div class="cat-filter-notice" id="catFilterNotice">
       Showing category: <strong id="catFilterName"></strong> — <a href="catalog.html">Clear filter</a>
     </div>
-    <div class="prod-grid">
+    <p class="catalog-no-results" id="catalogNoResults">No products match your search.</p>
+    <div class="prod-grid" id="prodGrid">
 
       <div class="prod-card" data-category="Home">
         <a href="product-spice-organizer.html">
@@ -154,7 +166,7 @@
 
       <div class="prod-card" data-category="Beauty">
         <a href="product-livefull-towel-refills-60ct.html">
-          <div class="prod-img"><img src="img/livefull-towel-refills-60ct.jpg" alt="LiveFull Compressed Face Towel Refills, 60-Count"></div>
+          <div class="prod-img"><img src="img/livefull-towel-refills-60ct.jpg" alt="Face towel refills"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">LiveFull Compressed Face Towel Refills, 60-Count</div>
@@ -165,7 +177,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-prestige-eyeliner-black.html">
-          <div class="prod-img"><img src="img/prestige-eyeliner-black.jpg" alt="Prestige Eyeliner, Black"></div>
+          <div class="prod-img"><img src="img/prestige-eyeliner-black.jpg" alt="Eyeliner pencil"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Prestige Eyeliner, Black</div>
@@ -176,7 +188,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-periomed-oral-rinse-refill.html">
-          <div class="prod-img"><img src="img/periomed-oral-rinse-refill.jpg" alt="3M ESPE PerioMed Oral Rinse Concentrate Refill, Mint"></div>
+          <div class="prod-img"><img src="img/periomed-oral-rinse-refill.jpg" alt="Oral rinse refill"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">3M ESPE PerioMed Oral Rinse Concentrate Refill, Mint</div>
@@ -187,7 +199,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-livefull-towel-refills-180ct.html">
-          <div class="prod-img"><img src="img/livefull-towel-refills-180ct.jpg" alt="LiveFull Compressed Face Towel Refills, 180-Count"></div>
+          <div class="prod-img"><img src="img/livefull-towel-refills-180ct.jpg" alt="Face towel refills"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">LiveFull Compressed Face Towel Refills, 180-Count</div>
@@ -198,7 +210,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-yulmu-skinclean-mask.html">
-          <div class="prod-img"><img src="img/yulmu-skinclean-mask.jpg" alt="RETURNITY Yulmu Skinclean Exfoliating Face Mask"></div>
+          <div class="prod-img"><img src="img/yulmu-skinclean-mask.jpg" alt="Face mask"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">RETURNITY Yulmu Skinclean Exfoliating Face Mask</div>
@@ -209,7 +221,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-cocobeauty-blur-primer.html">
-          <div class="prod-img"><img src="img/cocobeauty-blur-primer.jpg" alt="CocoBeauty Precision Line Blur Primer"></div>
+          <div class="prod-img"><img src="img/cocobeauty-blur-primer.jpg" alt="Makeup primer"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">CocoBeauty Precision Line Blur Primer</div>
@@ -220,7 +232,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-nad-spray-100-sprays.html">
-          <div class="prod-img"><img src="img/nad-spray-100-sprays.jpg" alt="Bulk Essentials NAD+ Spray, 100 Sprays"></div>
+          <div class="prod-img"><img src="img/nad-spray-100-sprays.jpg" alt="Supplement spray"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Bulk Essentials NAD+ Spray, 100 Sprays</div>
@@ -231,7 +243,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-brunae-tanning-bed-balm.html">
-          <div class="prod-img"><img src="img/brunae-tanning-bed-balm.jpg" alt="BRUNAE BODY Intensive Tanning Bed Balm"></div>
+          <div class="prod-img"><img src="img/brunae-tanning-bed-balm.jpg" alt="Tanning balm"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">BRUNAE BODY Intensive Tanning Bed Balm</div>
@@ -242,7 +254,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-pain-a-trate-extra-strength.html">
-          <div class="prod-img"><img src="img/pain-a-trate-extra-strength.jpg" alt="Melaleuca Extra Strength Pain-A-Trate"></div>
+          <div class="prod-img"><img src="img/pain-a-trate-extra-strength.jpg" alt="Pain relief cream"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Melaleuca Extra Strength Pain-A-Trate</div>
@@ -253,7 +265,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-deodorant-enhancer-mango.html">
-          <div class="prod-img"><img src="img/deodorant-enhancer-mango.jpg" alt="Bella Skin Beauty Deodorant Enhancer, Mango"></div>
+          <div class="prod-img"><img src="img/deodorant-enhancer-mango.jpg" alt="Underarm toner"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Bella Skin Beauty Deodorant Enhancer, Mango</div>
@@ -264,7 +276,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-underarm-toner-honeysuckle-peony.html">
-          <div class="prod-img"><img src="img/underarm-toner-honeysuckle-peony.jpg" alt="Bella Skin Beauty Underarm Toner, Honeysuckle Peony"></div>
+          <div class="prod-img"><img src="img/underarm-toner-honeysuckle-peony.jpg" alt="Underarm toner"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Bella Skin Beauty Underarm Toner, Honeysuckle Peony</div>
@@ -275,7 +287,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-brunae-dark-tanning-oil.html">
-          <div class="prod-img"><img src="img/brunae-dark-tanning-oil.jpg" alt="BRUNAE BODY Dark Tanning Oil"></div>
+          <div class="prod-img"><img src="img/brunae-dark-tanning-oil.jpg" alt="Tanning oil"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">BRUNAE BODY Dark Tanning Oil</div>
@@ -286,7 +298,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-lemon-up-dusting-powder.html">
-          <div class="prod-img"><img src="img/lemon-up-dusting-powder.jpg" alt="Lemon Up Dusting Powder, 4 oz"></div>
+          <div class="prod-img"><img src="img/lemon-up-dusting-powder.jpg" alt="Dusting powder"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Lemon Up Dusting Powder, 4 oz</div>
@@ -297,7 +309,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-strawberry-resurfacing-cream.html">
-          <div class="prod-img"><img src="img/strawberry-resurfacing-cream.jpg" alt="Strawberry Resurfacing Cream for Keratosis Pilaris"></div>
+          <div class="prod-img"><img src="img/strawberry-resurfacing-cream.jpg" alt="Resurfacing cream"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Strawberry Resurfacing Cream for Keratosis Pilaris</div>
@@ -308,7 +320,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-rennora-shampoo-conditioner.html">
-          <div class="prod-img"><img src="img/rennora-shampoo-conditioner.jpg" alt="Rennora Hair Growth Shampoo and Conditioner"></div>
+          <div class="prod-img"><img src="img/rennora-shampoo-conditioner.jpg" alt="Shampoo and conditioner"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Rennora Hair Growth Shampoo and Conditioner</div>
@@ -319,7 +331,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-froya-soothing-relief-balm.html">
-          <div class="prod-img"><img src="img/froya-soothing-relief-balm.jpg" alt="FRØYA Organics Soothing Relief Balm"></div>
+          <div class="prod-img"><img src="img/froya-soothing-relief-balm.jpg" alt="Relief balm"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">FRØYA Organics Soothing Relief Balm</div>
@@ -330,7 +342,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-growplex-hair-growth-bundle.html">
-          <div class="prod-img"><img src="img/growplex-hair-growth-bundle.jpg" alt="Growplex Hair Growth Support Bundle"></div>
+          <div class="prod-img"><img src="img/growplex-hair-growth-bundle.jpg" alt="Hair growth bundle"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Growplex Hair Growth Support Bundle</div>
@@ -341,7 +353,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-froya-anti-age-day-balm.html">
-          <div class="prod-img"><img src="img/froya-anti-age-day-balm.jpg" alt="FRØYA Organics Anti-Age Day Balm"></div>
+          <div class="prod-img"><img src="img/froya-anti-age-day-balm.jpg" alt="Day balm"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">FRØYA Organics Anti-Age Day Balm</div>
@@ -352,7 +364,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-klutch-denture-adhesive-powder.html">
-          <div class="prod-img"><img src="img/klutch-denture-adhesive-powder.jpg" alt="Klutch Denture Adhesive Powder, 6-Pack"></div>
+          <div class="prod-img"><img src="img/klutch-denture-adhesive-powder.jpg" alt="Denture adhesive"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Klutch Denture Adhesive Powder, 6-Pack</div>
@@ -363,7 +375,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-spoiledchild-tinted-lip-balm.html">
-          <div class="prod-img"><img src="img/spoiledchild-tinted-lip-balm.jpg" alt="SpoiledChild Tinted Lip Balm, Natural Pink"></div>
+          <div class="prod-img"><img src="img/spoiledchild-tinted-lip-balm.jpg" alt="Lip balm"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">SpoiledChild Tinted Lip Balm, Natural Pink</div>
@@ -374,7 +386,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-rennora-hair-growth-serum.html">
-          <div class="prod-img"><img src="img/rennora-hair-growth-serum.jpg" alt="Rennora Extra-Strength Hair Growth Serum"></div>
+          <div class="prod-img"><img src="img/rennora-hair-growth-serum.jpg" alt="Hair growth serum"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">Rennora Extra-Strength Hair Growth Serum</div>
@@ -385,7 +397,7 @@
       </div>
       <div class="prod-card" data-category="Beauty">
         <a href="product-spoiledchild-hair-revitalizer.html">
-          <div class="prod-img"><img src="img/spoiledchild-hair-revitalizer.jpg" alt="SpoiledChild Hair Revitalizer"></div>
+          <div class="prod-img"><img src="img/spoiledchild-hair-revitalizer.jpg" alt="Hair serum"></div>
           <div class="prod-body">
             <div class="prod-cat">Beauty</div>
             <div class="prod-name">SpoiledChild Hair Revitalizer</div>
@@ -440,16 +452,60 @@
 <script>
 (function(){
   var cat = new URLSearchParams(window.location.search).get('cat');
-  if(!cat) return;
-  var notice = document.getElementById('catFilterNotice');
-  var name = document.getElementById('catFilterName');
-  document.querySelectorAll('.prod-card').forEach(function(card){
-    if(card.getAttribute('data-category') !== cat){
-      card.style.display = 'none';
+  var grid = document.getElementById('prodGrid');
+  var cards = Array.prototype.slice.call(grid.querySelectorAll('.prod-card'));
+  var searchInput = document.getElementById('catalogSearch');
+  var sortSelect = document.getElementById('catalogSort');
+  var noResults = document.getElementById('catalogNoResults');
+
+  if (cat) {
+    var notice = document.getElementById('catFilterNotice');
+    var name = document.getElementById('catFilterName');
+    name.textContent = cat;
+    notice.classList.add('is-active');
+  }
+
+  function cardPrice(card) {
+    var text = card.querySelector('.prod-price').textContent.replace('$', '');
+    return parseFloat(text) || 0;
+  }
+
+  function cardName(card) {
+    return card.querySelector('.prod-name').textContent.trim().toLowerCase();
+  }
+
+  function applyFiltersAndSort() {
+    var sortValue = sortSelect.value;
+    var sorted = cards.slice();
+
+    if (sortValue === 'price-asc') {
+      sorted.sort(function(a, b){ return cardPrice(a) - cardPrice(b); });
+    } else if (sortValue === 'price-desc') {
+      sorted.sort(function(a, b){ return cardPrice(b) - cardPrice(a); });
+    } else if (sortValue === 'name-asc') {
+      sorted.sort(function(a, b){ return cardName(a).localeCompare(cardName(b)); });
     }
-  });
-  name.textContent = cat;
-  notice.classList.add('is-active');
+
+    sorted.forEach(function(card){ grid.appendChild(card); });
+
+    var query = searchInput.value.trim().toLowerCase();
+    var visibleCount = 0;
+
+    sorted.forEach(function(card){
+      var matchesCategory = !cat || card.getAttribute('data-category') === cat;
+      var matchesSearch = !query || cardName(card).indexOf(query) !== -1;
+      var visible = matchesCategory && matchesSearch;
+      card.style.display = visible ? '' : 'none';
+      if (visible) visibleCount++;
+    });
+
+    noResults.classList.toggle('is-active', visibleCount === 0);
+  }
+
+  searchInput.addEventListener('input', applyFiltersAndSort);
+  sortSelect.addEventListener('change', applyFiltersAndSort);
+
+  applyFiltersAndSort();
 })();
 </script>
 

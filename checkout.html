@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="description" content="Complete your FKTrade LLC order with card payment via Stripe.">
 <title>Checkout — FKTrade LLC</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -43,6 +45,8 @@
     <div class="order-summary">
       <h2>Order Summary</h2>
       <div class="order-summary-list" id="orderSummaryList"></div>
+      <div class="order-summary-row"><span>Subtotal</span><span id="orderSubtotal">$0.00</span></div>
+      <div class="order-summary-row"><span>Shipping</span><span id="orderShipping">$0.00</span></div>
       <div class="order-summary-total"><span>Total</span><span id="orderTotal">$0.00</span></div>
     </div>
 
@@ -173,8 +177,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }).join('');
 
   var subtotal = FKCart.cartSubtotal();
-  document.getElementById('orderTotal').textContent = FKCart.formatPrice(subtotal);
-  submitBtn.textContent = 'Pay ' + FKCart.formatPrice(subtotal);
+  var shipping = FKCart.shippingCost(subtotal);
+  var total = subtotal + shipping;
+  document.getElementById('orderSubtotal').textContent = FKCart.formatPrice(subtotal);
+  document.getElementById('orderShipping').textContent = shipping === 0 ? 'Free' : FKCart.formatPrice(shipping);
+  document.getElementById('orderTotal').textContent = FKCart.formatPrice(total);
+  submitBtn.textContent = 'Pay ' + FKCart.formatPrice(total);
 
   var items = cart.map(function (item) {
     return {
@@ -278,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (result.error) {
         messageBox.textContent = result.error.message || 'Payment failed. Please check your details and try again.';
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Pay ' + FKCart.formatPrice(subtotal);
+        submitBtn.textContent = 'Pay ' + FKCart.formatPrice(total);
       }
     });
   });

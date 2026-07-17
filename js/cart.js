@@ -1,6 +1,11 @@
 /* FKTrade cart — vanilla JS, localStorage-backed. No frameworks, no build step. */
 (function () {
   var CART_KEY = 'fktrade_cart';
+  // Flat shipping rate; free above the threshold. Mirrored server-side in
+  // netlify/functions/create-payment-intent.js, which recomputes independently
+  // rather than trusting a client-sent shipping or total value.
+  var SHIPPING_FLAT_RATE = 6.99;
+  var FREE_SHIPPING_THRESHOLD = 49;
 
   function getCart() {
     try {
@@ -67,6 +72,15 @@
     return getCart().reduce(function (sum, i) { return sum + i.qty * i.price; }, 0);
   }
 
+  function shippingCost(subtotal) {
+    return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FLAT_RATE;
+  }
+
+  function cartTotal() {
+    var subtotal = cartSubtotal();
+    return subtotal + shippingCost(subtotal);
+  }
+
   function formatPrice(n) {
     return '$' + n.toFixed(2);
   }
@@ -120,7 +134,10 @@
     clearCart: clearCart,
     cartCount: cartCount,
     cartSubtotal: cartSubtotal,
+    shippingCost: shippingCost,
+    cartTotal: cartTotal,
     formatPrice: formatPrice,
-    updateCartBadge: updateCartBadge
+    updateCartBadge: updateCartBadge,
+    FREE_SHIPPING_THRESHOLD: FREE_SHIPPING_THRESHOLD
   };
 })();

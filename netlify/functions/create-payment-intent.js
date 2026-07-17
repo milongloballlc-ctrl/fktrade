@@ -3,6 +3,12 @@
 // the Netlify site's environment variables — never commit a real key to this repo.
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+// Flat shipping rate; free above the threshold. Mirrors js/cart.js on the client,
+// but is recomputed here from the server-side item total rather than trusting
+// any shipping or total value the client might send.
+const SHIPPING_FLAT_CENTS = 699;
+const FREE_SHIPPING_THRESHOLD_CENTS = 4900;
+
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
@@ -43,6 +49,9 @@ exports.handler = async function (event) {
   if (amount <= 0) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Cart total must be greater than zero' }) };
   }
+
+  var shipping = amount >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_FLAT_CENTS;
+  amount += shipping;
 
   try {
     var paymentIntent = await stripe.paymentIntents.create({

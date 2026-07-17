@@ -33,6 +33,9 @@ triggers automatic redeploy.
   PaymentIntent (test mode); see "Stripe Payment Element (test mode)"
 - `package.json` — declares the `stripe` npm dependency for the function above
 - `netlify.toml` — tells Netlify's build where the functions directory is
+- `favicon.svg` — FK monogram favicon, linked from every page's `<head>`
+- `404.html` — not-found page in site style; Netlify serves this automatically
+  for unmatched routes because of the exact filename
 
 There is no framework and no templating; every page is standalone HTML. `js/cart.js`
 is the one shared script, included via `<script src="js/cart.js" defer></script>`
@@ -81,15 +84,45 @@ the `is-active` class. `.cat-card` is an `<a>` (not a `<div>`) — the anchor st
 `styles.css`. When adding a new product card, always set `data-category` to one of
 the six short labels above so it participates correctly in the filter.
 
+## Catalog search and sort (catalog.html)
+`#catalogSearch` (a `<input type="search">`) and `#catalogSort` (a `<select>` with
+`default` / `price-asc` / `price-desc` / `name-asc` options) live in a
+`.catalog-toolbar` above the product grid, and are wired by the same inline
+script that handles the `?cat=` filter — all three (category, search, sort) run
+through one `applyFiltersAndSort()` function so they compose correctly instead of
+fighting over `card.style.display`:
+- Sort re-orders the actual `.prod-card` DOM nodes inside `#prodGrid` (via
+  `appendChild`), reading price from `.prod-price` and name from `.prod-name`.
+- Category + search then run as a filter pass over the (possibly reordered)
+  cards, hiding any card that fails either check.
+- `#catalogNoResults` (`.catalog-no-results`) toggles visible via `is-active` when
+  zero cards match, mirroring the `is-active` pattern used by `#catFilterNotice`.
+
+If you add a new sort option or another filter dimension, extend
+`applyFiltersAndSort()` rather than adding a second independent script — a second
+script that also sets `card.style.display` will silently undo whatever this one
+just did.
+
 ## Cart architecture
 The cart is entirely client-side, backed by `localStorage` under the key
 `fktrade_cart`: a JSON array of `{slug, name, price, qty, image}` objects
 (`price` is a plain dollar float, e.g. `24.99` — matching the `$XX.XX` display
 convention, NOT cents). All reads/writes go through `js/cart.js`, which exposes a
 `window.FKCart` API: `getCart`, `addToCart`, `removeFromCart`, `updateQty`,
-`clearCart`, `cartCount`, `cartSubtotal`, `formatPrice`, `updateCartBadge`. Don't
-touch `localStorage.fktrade_cart` directly from page scripts — always go through
+`clearCart`, `cartCount`, `cartSubtotal`, `shippingCost`, `cartTotal`,
+`formatPrice`, `updateCartBadge`, `FREE_SHIPPING_THRESHOLD`. Don't touch
+`localStorage.fktrade_cart` directly from page scripts — always go through
 `FKCart`.
+
+**Shipping rule**: flat `$6.99`, free once `cartSubtotal()` reaches `$49`
+(`FKCart.shippingCost(subtotal)` returns `0` or `6.99`; `FKCart.cartTotal()` is
+subtotal + shipping). Both `cart.html` and `checkout.html` render Subtotal,
+Shipping (shown as "Free" when it's `0`), and Total as separate rows using these
+helpers — never hardcode the `$6.99`/`$49` numbers in a page script. The same
+rule is duplicated server-side in `netlify/functions/create-payment-intent.js`
+as `SHIPPING_FLAT_CENTS` / `FREE_SHIPPING_THRESHOLD_CENTS`, recomputed from the
+item total rather than trusted from the client — if the rule ever changes,
+update both places.
 
 **Header cart icon**: every page's nav has an inline SVG cart icon
 (`.nav-cart`, linking to `cart.html`) with a `#cartBadge` count span, replacing the
@@ -164,8 +197,10 @@ the endpoint used in step 1:
   Environment variables), not in `netlify.toml` or any tracked file.
 - Rejects anything but `POST`, invalid JSON, an empty/missing `items` array, and any
   item whose `price`/`qty` isn't a positive integer.
-- Computes the total `amount` (integer cents) itself by summing `price * qty`
-  server-side, rather than trusting a client-sent total.
+- Computes the item total (integer cents) itself by summing `price * qty`
+  server-side, rather than trusting a client-sent total, then adds shipping
+  (`SHIPPING_FLAT_CENTS` unless the item total meets `FREE_SHIPPING_THRESHOLD_CENTS`)
+  computed the same way — the client never sends a shipping or total value.
 - Creates a PaymentIntent with `currency: 'usd'` and `automatic_payment_methods:
   { enabled: true }`, and returns `{ client_secret: paymentIntent.client_secret }`
   as JSON on success, or a 4xx/5xx JSON error.
@@ -194,8 +229,44 @@ When creating a real product page:
    product is featured there) to the new file.
 5. Add the `data-add-to-cart` button in `.product-actions` with matching
    `data-slug`/`data-name`/`data-price`/`data-image` (see "Cart architecture").
+6. Add a unique `<meta name="description">` and the four tags described in
+   "Site hygiene" below (`og:type`, `og:title`, `og:description`, `og:image`) —
+   copy the pattern from any existing `product-*.html`, don't skip it.
 
 Never leave a deployed page linking to the bare `product.html` template.
+
+## Site hygiene
+Every page's `<head>` (all 43 HTML files) has, right after the viewport meta tag:
+```html
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="description" content="...one sentence, unique to this page...">
+```
+`favicon.svg` is a plain FK monogram (cream text on `--green-deep`) — don't
+replace it with a raster/multi-format favicon setup unless asked; one SVG file
+covers all modern browsers and keeps this a zero-build-step site.
+
+`index.html` and every `product-<slug>.html` additionally carry Open Graph tags
+right after the description:
+```html
+<meta property="og:type" content="website">
+<meta property="og:title" content="...">
+<meta property="og:description" content="...">
+<meta property="og:image" content="...">
+```
+For product pages, `og:image` is the same URL as the `.product-gallery img` src,
+and the meta/OG description is generated as `"{Name}, ${price}, from FKTrade
+LLC's {Full Category} range."` — keep new product pages consistent with that
+phrasing rather than inventing a new format per product.
+
+`404.html` is a normal site-styled page (same header/footer as every other page)
+that Netlify serves automatically for unmatched routes because the filename is
+exactly `404.html` at the repo root — no redirect rule needed in `netlify.toml`.
+
+The contact form's honeypot field (`index.html`, `input[name="bot-field"]`) is
+hidden with `.visually-hidden` (clipped to 1x1px, not `display:none`) rather than
+the old `.hidden` class — some bots specifically skip `display:none` fields, which
+would defeat the honeypot. Use `.visually-hidden` (not `.hidden`, which no longer
+exists in `styles.css`) for anything that must stay in the DOM and off-screen.
 
 ## Duplication traps — always sync these
 1. Header nav and footer are copy-pasted in ALL html files. Any change to the menu,
@@ -203,6 +274,7 @@ Never leave a deployed page linking to the bare `product.html` template.
    icon must be applied to every page. After editing, grep to verify:
    `grep -l "info@fktrade.llc" *.html` should list all pages with a footer, and
    `grep -L "js/cart.js" *.html` should list nothing (every page must include it).
+   Same check for the favicon: `grep -L "favicon.svg" *.html` should list nothing.
 2. The 4 featured cards on `index.html` are duplicates of cards in `catalog.html`,
    including their add-to-cart data attributes. A price or name change must be made
    in both files.

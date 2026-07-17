@@ -111,6 +111,19 @@ header{
 
 /* products */
 .products{ padding:8px 0 64px; }
+.catalog-toolbar{ display:flex; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
+.catalog-search{
+  flex:1; min-width:200px; border:1px solid var(--line); border-radius:4px; padding:10px 14px;
+  font-family:'Inter', sans-serif; font-size:14px; color:var(--ink); background:#fff;
+}
+.catalog-search:focus{ outline:none; border-color:var(--green); }
+.catalog-sort{
+  border:1px solid var(--line); border-radius:4px; padding:10px 14px;
+  font-family:'Inter', sans-serif; font-size:14px; color:var(--ink); background:#fff; cursor:pointer;
+}
+.catalog-sort:focus{ outline:none; border-color:var(--green); }
+.catalog-no-results{ display:none; color:var(--ink-soft); font-size:14px; padding:40px 0; text-align:center; }
+.catalog-no-results.is-active{ display:block; }
 .cat-filter-notice{
   display:none; background:#EFF3F0; border:1px solid var(--line); border-radius:5px;
   padding:10px 16px; font-size:13.5px; color:var(--ink-soft); margin-bottom:20px;
@@ -205,7 +218,13 @@ header{
 .form-row input:focus, .form-row textarea:focus{ outline:none; border-color:var(--green); }
 .form-row textarea{ resize:vertical; min-height:120px; }
 .contact-form button{ align-self:flex-start; border:none; cursor:pointer; }
-.hidden{ display:none; }
+/* Visually hides content (e.g. the honeypot field) while keeping it in the DOM
+   and out of display:none — some bots skip display:none fields, defeating the
+   honeypot's purpose. */
+.visually-hidden{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
 
 /* cart page */
 .cart-page{ padding:8px 0 72px; }
@@ -225,7 +244,8 @@ header{
 .cart-item-line-total{ font-weight:700; color:var(--green-deep); font-size:14.5px; min-width:70px; text-align:right; }
 .cart-item-remove{ background:none; border:none; color:var(--rust); font-size:13px; font-weight:600; cursor:pointer; }
 .cart-summary{ border-top:1px solid var(--line); padding-top:24px; }
-.cart-subtotal-row{ display:flex; justify-content:space-between; font-size:18px; font-weight:700; margin-bottom:20px; }
+.cart-line-row{ display:flex; justify-content:space-between; font-size:14px; color:var(--ink-soft); margin-bottom:10px; }
+.cart-subtotal-row{ display:flex; justify-content:space-between; font-size:18px; font-weight:700; margin-bottom:20px; padding-top:10px; border-top:1px solid var(--line); }
 .cart-actions{ display:flex; justify-content:space-between; gap:14px; }
 .cart-empty{ text-align:center; padding:64px 0; color:var(--ink-soft); }
 .cart-empty p{ margin-bottom:20px; font-size:15px; }
