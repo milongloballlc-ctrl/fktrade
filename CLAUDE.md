@@ -457,7 +457,12 @@ snapshot used only by Stage 1) and reconciles the site against it.
      otherwise: the generated `.spec-list` only ever gets `SKU` and `Category`
      rows, never fabricated Material/Dimensions/Color, since Amazon's
      attribute schema is too inconsistent across product types to trust for
-     factual claims (see "Tone and content rules").
+     factual claims (see "Tone and content rules"). The same review applies to
+     the catalog card's `alt` text: it's generated from the full item name
+     (there's no reliable automatic way to shorten "EKMIVEDA Hair Growth Set
+     With Ayurvedic Herbs - Bhringraj, Castor, Amla..." to "Hair growth set"),
+     so shorten it by hand to a concise item type, matching every other card,
+     when reviewing new products — don't leave the raw name in place.
    - **Image** — same largest-`MAIN`-variant logic as Stage 1.
    - The page is generated from `PRODUCT_PAGE_TEMPLATE` in the script (kept in
      sync with the real page structure by hand — if the established product
