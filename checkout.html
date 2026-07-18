@@ -47,7 +47,9 @@
       <div class="order-summary-list" id="orderSummaryList"></div>
       <div class="order-summary-row"><span>Subtotal</span><span id="orderSubtotal">$0.00</span></div>
       <div class="order-summary-row"><span>Shipping</span><span id="orderShipping">$0.00</span></div>
-      <div class="order-summary-total"><span>Total</span><span id="orderTotal">$0.00</span></div>
+      <div class="order-summary-row"><span>Tax</span><span id="orderTax">—</span></div>
+      <div class="order-summary-total"><span>Total</span><span id="orderTotal">—</span></div>
+      <p class="order-summary-note" id="orderSummaryNote">Enter your shipping address to calculate tax and total.</p>
     </div>
 
     <div class="checkout-form-col">
@@ -160,6 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var list = document.getElementById('orderSummaryList');
   var submitBtn = document.getElementById('submitPayBtn');
   var messageBox = document.getElementById('paymentMessage');
+  var summaryNote = document.getElementById('orderSummaryNote');
   var form = document.getElementById('paymentForm');
 
   if (cart.length === 0) {
@@ -178,14 +181,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   var subtotal = FKCart.cartSubtotal();
   var shipping = FKCart.shippingCost(subtotal);
-  var total = subtotal + shipping;
   document.getElementById('orderSubtotal').textContent = FKCart.formatPrice(subtotal);
   document.getElementById('orderShipping').textContent = shipping === 0 ? 'Free' : FKCart.formatPrice(shipping);
-  document.getElementById('orderTotal').textContent = FKCart.formatPrice(total);
-  submitBtn.textContent = 'Pay ' + FKCart.formatPrice(total);
 
   var items = cart.map(function (item) {
     return {
+      slug: item.slug,
       name: item.name,
       price: Math.round(item.price * 100), // Stripe expects integer cents
       qty: item.qty
@@ -193,49 +194,121 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   var stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
-  var elements;
+  var elements = null;
+  var paymentIntentId = null;
+  var lastTotal = null;
+  var calculating = false;
+  var debounceTimer = null;
 
-  fetch('/.netlify/functions/create-payment-intent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: items })
-  })
-    .then(function (res) {
-      if (!res.ok) throw new Error('Unable to start payment');
-      return res.json();
+  var addressFieldIds = ['co-address1', 'co-address2', 'co-city', 'co-state', 'co-zip'];
+
+  function getAddress() {
+    return {
+      address1: document.getElementById('co-address1').value.trim(),
+      address2: document.getElementById('co-address2').value.trim(),
+      city: document.getElementById('co-city').value.trim(),
+      state: document.getElementById('co-state').value.trim(),
+      zip: document.getElementById('co-zip').value.trim()
+    };
+  }
+
+  function isAddressComplete(address) {
+    return !!(address.address1 && address.city && address.state && address.zip);
+  }
+
+  function resetCalculatedTotals(message) {
+    document.getElementById('orderTax').textContent = '—';
+    document.getElementById('orderTotal').textContent = '—';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enter address to calculate total';
+    summaryNote.textContent = message || 'Enter your shipping address to calculate tax and total.';
+    summaryNote.style.display = 'block';
+  }
+
+  function scheduleCalculation() {
+    clearTimeout(debounceTimer);
+    var address = getAddress();
+    if (!isAddressComplete(address)) {
+      resetCalculatedTotals();
+      return;
+    }
+    debounceTimer = setTimeout(function () { calculateTax(address); }, 700);
+  }
+
+  function calculateTax(address) {
+    if (calculating) return;
+    calculating = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Calculating…';
+    messageBox.textContent = '';
+
+    fetch('/.netlify/functions/create-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: items,
+        address: address,
+        payment_intent_id: paymentIntentId || undefined
+      })
     })
-    .then(function (data) {
-      if (!data || !data.client_secret) throw new Error('No client secret returned');
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.error || 'Unable to calculate tax for this address');
+          return data;
+        });
+      })
+      .then(function (data) {
+        if (!data || !data.client_secret) throw new Error('No client secret returned');
 
-      elements = stripe.elements({
-        clientSecret: data.client_secret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#2F5D50',
-            colorBackground: '#FFFFFF',
-            colorText: '#21231F',
-            colorTextPlaceholder: '#5A5D55',
-            colorDanger: '#C0704A',
-            fontFamily: 'Inter, sans-serif',
-            borderRadius: '4px',
-            spacingUnit: '4px'
-          },
-          rules: {
-            '.Input': { border: '1px solid #E3DFD3', boxShadow: 'none' },
-            '.Input:focus': { border: '1px solid #2F5D50', boxShadow: 'none' },
-            '.Label': { fontWeight: '600', fontSize: '13px', color: '#21231F' }
-          }
+        paymentIntentId = data.payment_intent_id;
+        lastTotal = parseFloat(data.total);
+
+        document.getElementById('orderTax').textContent = FKCart.formatPrice(parseFloat(data.tax));
+        document.getElementById('orderTotal').textContent = FKCart.formatPrice(lastTotal);
+        summaryNote.style.display = 'none';
+
+        if (!elements) {
+          elements = stripe.elements({
+            clientSecret: data.client_secret,
+            appearance: {
+              theme: 'stripe',
+              variables: {
+                colorPrimary: '#2F5D50',
+                colorBackground: '#FFFFFF',
+                colorText: '#21231F',
+                colorTextPlaceholder: '#5A5D55',
+                colorDanger: '#C0704A',
+                fontFamily: 'Inter, sans-serif',
+                borderRadius: '4px',
+                spacingUnit: '4px'
+              },
+              rules: {
+                '.Input': { border: '1px solid #E3DFD3', boxShadow: 'none' },
+                '.Input:focus': { border: '1px solid #2F5D50', boxShadow: 'none' },
+                '.Label': { fontWeight: '600', fontSize: '13px', color: '#21231F' }
+              }
+            }
+          });
+          var paymentElement = elements.create('payment');
+          paymentElement.mount('#payment-element');
         }
-      });
 
-      var paymentElement = elements.create('payment');
-      paymentElement.mount('#payment-element');
-      submitBtn.disabled = false;
-    })
-    .catch(function () {
-      messageBox.textContent = 'Unable to load the payment form right now. Please refresh the page and try again.';
-    });
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Pay ' + FKCart.formatPrice(lastTotal);
+      })
+      .catch(function (err) {
+        messageBox.textContent = err.message || 'Unable to calculate tax for this address. Please check the address and try again.';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enter address to calculate total';
+      })
+      .finally(function () {
+        calculating = false;
+      });
+  }
+
+  addressFieldIds.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', scheduleCalculation);
+  });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -244,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
       form.reportValidity();
       return;
     }
-    if (!elements) return;
+    if (!elements || !paymentIntentId) return;
 
     messageBox.textContent = '';
     submitBtn.disabled = true;
@@ -253,12 +326,13 @@ document.addEventListener('DOMContentLoaded', function () {
     var fullName = document.getElementById('co-name').value;
     var email = document.getElementById('co-email').value;
     var phone = document.getElementById('co-phone').value;
+    var addr = getAddress();
     var address = {
-      line1: document.getElementById('co-address1').value,
-      line2: document.getElementById('co-address2').value,
-      city: document.getElementById('co-city').value,
-      state: document.getElementById('co-state').value,
-      postal_code: document.getElementById('co-zip').value,
+      line1: addr.address1,
+      line2: addr.address2,
+      city: addr.city,
+      state: addr.state,
+      postal_code: addr.zip,
       country: 'US'
     };
 
@@ -286,10 +360,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (result.error) {
         messageBox.textContent = result.error.message || 'Payment failed. Please check your details and try again.';
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Pay ' + FKCart.formatPrice(total);
+        submitBtn.textContent = 'Pay ' + FKCart.formatPrice(lastTotal);
       }
     });
   });
+
+  resetCalculatedTotals();
 });
 </script>
 

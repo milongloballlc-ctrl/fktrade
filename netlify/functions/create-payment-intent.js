@@ -1,6 +1,9 @@
-// Netlify Function: creates a Stripe PaymentIntent (test mode) for the Payment
-// Element embedded in checkout.html. Requires STRIPE_SECRET_KEY to be set in
-// the Netlify site's environment variables — never commit a real key to this repo.
+// Netlify Function: creates (or, on address changes, updates) a Stripe
+// PaymentIntent for the Payment Element embedded in checkout.html. Stripe Tax
+// computes the tax owed for the given US shipping address, and the
+// PaymentIntent's amount is set from that calculation rather than a
+// client-sent total. Requires STRIPE_SECRET_KEY to be set in the Netlify
+// site's environment variables — never commit a real key to this repo.
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Flat shipping rate; free above the threshold. Mirrors js/cart.js on the client,
@@ -8,6 +11,10 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // any shipping or total value the client might send.
 const SHIPPING_FLAT_CENTS = 699;
 const FREE_SHIPPING_THRESHOLD_CENTS = 4900;
+
+function dollars(cents) {
+  return (cents / 100).toFixed(2);
+}
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
@@ -22,15 +29,25 @@ exports.handler = async function (event) {
   }
 
   const items = payload.items;
+  const address = payload.address || {};
+  const existingPaymentIntentId = payload.payment_intent_id;
 
   if (!Array.isArray(items) || items.length === 0) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Cart is empty' }) };
   }
 
+  if (!address.address1 || !address.city || !address.state || !address.zip) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'A complete US shipping address (address, city, state, ZIP) is required to calculate tax' }),
+    };
+  }
+
   // TODO before going live: prices here come from the client and must be
   // re-validated against a server-side product list (id/price lookup), not
   // trusted as-is — otherwise a caller could send an arbitrary amount.
-  var amount = 0;
+  var itemsTotal = 0;
+  var taxLineItems = [];
   for (var i = 0; i < items.length; i++) {
     var item = items[i] || {};
     var price = Number(item.price); // expected: integer cents
@@ -43,33 +60,79 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid quantity for item ' + (i + 1) + ' — must be a positive integer' }) };
     }
 
-    amount += price * qty;
+    var lineAmount = price * qty;
+    itemsTotal += lineAmount;
+    taxLineItems.push({
+      amount: lineAmount,
+      reference: item.slug || ('item-' + i),
+    });
   }
 
-  if (amount <= 0) {
+  if (itemsTotal <= 0) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Cart total must be greater than zero' }) };
   }
 
-  var shipping = amount >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_FLAT_CENTS;
-  amount += shipping;
+  var shipping = itemsTotal >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_FLAT_CENTS;
+
+  var calculation;
+  try {
+    calculation = await stripe.tax.calculations.create({
+      currency: 'usd',
+      line_items: taxLineItems,
+      shipping_cost: { amount: shipping },
+      customer_details: {
+        address: {
+          line1: address.address1,
+          line2: address.address2 || undefined,
+          city: address.city,
+          state: address.state,
+          postal_code: address.zip,
+          country: 'US',
+        },
+        address_source: 'shipping',
+      },
+    });
+  } catch (err) {
+    console.error('Stripe Tax calculation failed:', err);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Unable to calculate tax for this address' }) };
+  }
+
+  // tax_amount_exclusive and amount_total are both in cents. amount_total is
+  // itemsTotal + shipping + tax — Stripe Tax computes the sum itself so we
+  // don't have to re-derive it (and risk drifting from its own rounding).
+  var tax = calculation.tax_amount_exclusive;
+  var total = calculation.amount_total;
 
   try {
-    var paymentIntent = await stripe.paymentIntents.create({
-      amount: amount,
-      currency: 'usd',
-      automatic_payment_methods: { enabled: true }
-    });
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_secret: paymentIntent.client_secret })
-    };
+    var paymentIntent;
+    if (existingPaymentIntentId) {
+      paymentIntent = await stripe.paymentIntents.update(existingPaymentIntentId, {
+        amount: total,
+        metadata: { tax_calculation_id: calculation.id },
+      });
+    } else {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: total,
+        currency: 'usd',
+        automatic_payment_methods: { enabled: true },
+        metadata: { tax_calculation_id: calculation.id },
+      });
+    }
   } catch (err) {
-    console.error('Stripe PaymentIntent creation failed:', err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Unable to create payment intent' })
-    };
+    console.error('Stripe PaymentIntent create/update failed:', err);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Unable to create payment intent' }) };
   }
+
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_secret: paymentIntent.client_secret,
+      payment_intent_id: paymentIntent.id,
+      subtotal: dollars(itemsTotal),
+      shipping: dollars(shipping),
+      tax: dollars(tax),
+      total: dollars(total),
+    }),
+  };
 };

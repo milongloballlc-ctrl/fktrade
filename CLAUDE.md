@@ -186,49 +186,100 @@ var STRIPE_PUBLISHABLE_KEY = "pk_test_PLACEHOLDER";
 Developers → API keys) before the payment form will work. Publishable keys are
 safe to expose client-side, unlike the secret key used in the Netlify Function.
 
-Flow, on page load (only if the cart is non-empty — otherwise the form is hidden
-and an empty-cart message is shown, same as before):
-1. Convert the cart to `{name, price, qty}` with `price` in **integer cents**
-   (`Math.round(dollars * 100)` — the cart itself still stores dollars, per "Cart
-   architecture" above) and POST `{ items: [...] }` to
-   `/.netlify/functions/create-payment-intent`.
-2. Use the returned `client_secret` to call `stripe.elements({ clientSecret,
-   appearance })`, with the `appearance` object's `variables`/`rules` mapped to
-   `styles.css`'s color tokens (`--green`, `--ink`, `--line`, etc.) and `Inter` as
-   the font, so the embedded card fields match the site's look.
-3. Mount the Payment Element into `#payment-element` and enable the submit button
-   (`#submitPayBtn`, disabled until the element is ready).
+The amount charged now includes **Stripe Tax**, which depends on the shipping
+address — so, unlike a plain Payment Element flow, nothing is created until the
+shopper has typed in a complete address:
 
-On submit: native `required` validation runs first (`form.checkValidity()` /
-`reportValidity()`); if valid, the button is disabled and shows "Processing…",
-then `stripe.confirmPayment({ elements, confirmParams: { return_url:
-'https://fktrade.llc/order-thanks.html', payment_method_data: { billing_details },
-shipping } })` is called with the name/email/phone/address field values. On a
-declined card or validation error, Stripe resolves with `result.error` and the
-message is shown in `#paymentMessage` (`.payment-error`) with the button
-re-enabled; on success, Stripe redirects the browser to `return_url` itself (the
-`.then()` callback is not reached).
+1. On page load, only Subtotal and Shipping render (from the local cart, no
+   network call). Tax and Total show `—`, a note asks for the address, and
+   `#submitPayBtn` is disabled with the label "Enter address to calculate total".
+2. Every `input` event on the address fields (`co-address1`, `co-address2`,
+   `co-city`, `co-state`, `co-zip`) calls `scheduleCalculation()`, which
+   debounces 700ms and then, only if address1/city/state/zip are all
+   non-empty, calls `calculateTax()`.
+3. `calculateTax()` converts the cart to `{slug, name, price, qty}` with
+   `price` in **integer cents** (`Math.round(dollars * 100)` — the cart itself
+   still stores dollars, per "Cart architecture" above) and POSTs
+   `{ items, address, payment_intent_id }` to
+   `/.netlify/functions/create-payment-intent`. `payment_intent_id` is `null`
+   the first time and the previously-returned id on every recalculation.
+4. The response (`{ client_secret, payment_intent_id, subtotal, shipping, tax,
+   total }`) updates the Tax and Total rows — **Tax always renders as a dollar
+   amount, including `$0.00`**, never hidden or replaced with "Free" the way
+   Shipping is. The **first** successful response also calls
+   `stripe.elements({ clientSecret, appearance })` (appearance mapped to
+   `styles.css`'s color tokens and Inter, as before) and mounts the Payment
+   Element into `#payment-element`; later recalculations skip this, since
+   updating a PaymentIntent's `amount` server-side leaves its `client_secret`
+   unchanged — the already-mounted Element keeps working against the new
+   amount without remounting. `#submitPayBtn` is enabled and labeled
+   `"Pay $<total>"` only once a calculation has succeeded.
+5. On submit: native `required` validation runs first (`form.checkValidity()` /
+   `reportValidity()`); if valid (and a calculation has completed — the handler
+   bails out silently if `elements`/`payment_intent_id` aren't set yet), the
+   button shows "Processing…" and `stripe.confirmPayment({ elements,
+   confirmParams: { return_url: 'https://fktrade.llc/order-thanks.html',
+   payment_method_data: { billing_details }, shipping } })` is called with the
+   name/email/phone/address field values. On a declined card or validation
+   error, Stripe resolves with `result.error` and the message is shown in
+   `#paymentMessage` (`.payment-error`) with the button re-enabled; on success,
+   Stripe redirects the browser to `return_url` itself (the `.then()` callback
+   is not reached).
 
 `netlify/functions/create-payment-intent.js` is the Node Netlify Function backing
-the endpoint used in step 1:
+that endpoint:
 - Reads the Stripe secret key from `process.env.STRIPE_SECRET_KEY` — **never commit
   a real key to this repo**. Test-mode keys start with `sk_test_`; set the real
   value only in the Netlify site's environment variables (Site settings →
   Environment variables), not in `netlify.toml` or any tracked file.
-- Rejects anything but `POST`, invalid JSON, an empty/missing `items` array, and any
-  item whose `price`/`qty` isn't a positive integer.
+- Rejects anything but `POST`, invalid JSON, an empty/missing `items` array, any
+  item whose `price`/`qty` isn't a positive integer, and a missing/incomplete
+  `address` (address1/city/state/zip all required — there's no calculating tax
+  without a destination).
 - Computes the item total (integer cents) itself by summing `price * qty`
   server-side, rather than trusting a client-sent total, then adds shipping
   (`SHIPPING_FLAT_CENTS` unless the item total meets `FREE_SHIPPING_THRESHOLD_CENTS`)
   computed the same way — the client never sends a shipping or total value.
-- Creates a PaymentIntent with `currency: 'usd'` and `automatic_payment_methods:
-  { enabled: true }`, and returns `{ client_secret: paymentIntent.client_secret }`
-  as JSON on success, or a 4xx/5xx JSON error.
+- Calls `stripe.tax.calculations.create()` with one tax line item per cart item
+  (`amount` + `reference: slug`) and `shipping_cost: { amount: shipping }`, using
+  the address as `customer_details.address` (`address_source: 'shipping'`).
+  `tax_amount_exclusive` and `amount_total` come back from Stripe already summed
+  correctly — the function doesn't re-derive the total itself, to avoid drifting
+  from Stripe's own rounding.
+- Creates a PaymentIntent (`currency: 'usd'`, `automatic_payment_methods: {
+  enabled: true }`, `amount` = the calculation's `amount_total`) the first time,
+  stamping `metadata.tax_calculation_id` with the calculation's id. If the
+  request includes a `payment_intent_id` (a recalculation), it **updates** that
+  same PaymentIntent's `amount` and `metadata` instead of creating a new one —
+  confirmed live that this preserves the existing `client_secret`.
+- Returns `{ client_secret, payment_intent_id, subtotal, shipping, tax, total }`
+  (the last four as decimal-dollar strings, matching the `$XX.XX` display
+  convention) as JSON on success, or a 4xx/5xx JSON error.
 - **TODO before going live**: the function currently trusts the per-item price the
   client sends when computing the total. Before this leaves test mode, prices must
   be looked up server-side from a fixed product list (e.g. keyed by slug/SKU)
   instead of taking `item.price` from the request, otherwise a caller can submit
   an arbitrary amount.
+
+`netlify/functions/record-tax-transaction.js` records the sale for Stripe Tax
+reporting **after** payment succeeds — Stripe Tax transactions shouldn't be
+created at calculation time, only once a sale is confirmed. `order-thanks.html`
+reads `payment_intent`/`redirect_status` off its own URL (Stripe appends these
+when it redirects the browser after `confirmPayment`) and, if
+`redirect_status=succeeded`, POSTs `{ payment_intent_id }` to this function as a
+fire-and-forget call (it doesn't block clearing the cart or the "order received"
+message). The function retrieves the PaymentIntent, confirms `status ===
+'succeeded'`, reads `metadata.tax_calculation_id`, and calls
+`stripe.tax.transactions.createFromCalculation({ calculation, reference:
+paymentIntent.id })`. A repeat call (e.g. the shopper refreshes
+order-thanks.html) is treated as success rather than surfaced as an error, since
+Stripe rejects re-recording the same calculation.
+
+This is simpler than Stripe's webhook-based reference pattern for recording tax
+transactions (a `payment_intent.succeeded` webhook calling the same API) and
+depends on the shopper's browser actually reaching order-thanks.html — good
+enough for test mode, but a webhook is the more robust option before this goes
+live, since it doesn't depend on the client completing the redirect.
 
 `package.json` declares the `stripe` npm dependency; `netlify.toml` sets
 `functions = "netlify/functions"` so Netlify's build picks up the function. There is

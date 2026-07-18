@@ -87,6 +87,23 @@
 <script src="js/cart.js" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var params = new URLSearchParams(window.location.search);
+  var paymentIntentId = params.get('payment_intent');
+  var redirectStatus = params.get('redirect_status');
+
+  if (paymentIntentId && redirectStatus === 'succeeded') {
+    // Best-effort: records the Stripe Tax transaction for this sale. Not
+    // blocking — the shopper's "order received" experience doesn't depend
+    // on this bookkeeping step succeeding.
+    fetch('/.netlify/functions/record-tax-transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payment_intent_id: paymentIntentId })
+    }).catch(function (err) {
+      console.error('Unable to record tax transaction:', err);
+    });
+  }
+
   FKCart.clearCart();
 });
 </script>
