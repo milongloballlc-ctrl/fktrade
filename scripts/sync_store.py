@@ -33,6 +33,7 @@ import argparse
 import csv
 import gzip
 import io
+import json
 import os
 import re
 import sys
@@ -54,6 +55,7 @@ except ImportError:
 CATALOG_PATH = os.path.join(REPO_ROOT, "catalog.html")
 INDEX_PATH = os.path.join(REPO_ROOT, "index.html")
 EXCLUDE_PATH = os.path.join(REPO_ROOT, "scripts", "sync_exclude.txt")
+PRODUCTS_JSON_PATH = os.path.join(REPO_ROOT, "products.json")
 
 REPORT_TYPE = "GET_MERCHANT_LISTINGS_ALL_DATA"
 REPORT_POLL_INTERVAL_SECONDS = 15
@@ -230,6 +232,23 @@ def load_site_products():
             "name": re.sub(r"&amp;", "&", name_m.group(1)).strip() if name_m else slug,
         }
     return products
+
+
+def write_products_json():
+    """Regenerate products.json from the current on-disk product pages (call
+    this after all page/card writes so it reflects the final state of a run).
+    create-payment-intent.js reads this to validate cart items server-side —
+    see 'Server-side price validation' in CLAUDE.md."""
+    products = load_site_products()
+    data = [
+        {"slug": p["slug"], "asin": asin, "name": p["name"], "price": p["price"]}
+        for asin, p in products.items()
+    ]
+    data.sort(key=lambda d: d["slug"])
+    with open(PRODUCTS_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    return data
 
 
 # --------------------------------------------------------------------------
@@ -730,6 +749,10 @@ def main():
         if index_html is not None:
             with open(INDEX_PATH, "w", encoding="utf-8") as f:
                 f.write(index_html)
+
+    products_data = write_products_json()
+    changed_files.add(os.path.relpath(PRODUCTS_JSON_PATH, REPO_ROOT))
+    print(f"\nWrote products.json ({len(products_data)} products)")
 
     print(f"\nDone. {len(changed_files)} file(s) changed.")
 

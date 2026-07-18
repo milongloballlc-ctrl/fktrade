@@ -1,3 +1,8 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+
+[functions]
+  # Bundle the generated product catalog with every function so
+  # create-payment-intent.js can validate cart items server-side.
+  included_files = ["products.json"]

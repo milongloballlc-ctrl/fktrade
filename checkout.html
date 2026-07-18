@@ -184,13 +184,10 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('orderSubtotal').textContent = FKCart.formatPrice(subtotal);
   document.getElementById('orderShipping').textContent = shipping === 0 ? 'Free' : FKCart.formatPrice(shipping);
 
+  // Only slug + qty are sent — the server looks up the real price by slug
+  // from products.json rather than trusting a client-sent price.
   var items = cart.map(function (item) {
-    return {
-      slug: item.slug,
-      name: item.name,
-      price: Math.round(item.price * 100), // Stripe expects integer cents
-      qty: item.qty
-    };
+    return { slug: item.slug, qty: item.qty };
   });
 
   var stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
