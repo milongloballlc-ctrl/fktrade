@@ -1,0 +1,14 @@
+# Secrets — never commit
+.env
+
+# Amazon active listings report — contains live account identifiers (ASINs,
+# listing IDs, seller SKUs); source data for scripts/, not site content.
+listings.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS cruft
+.DS_Store

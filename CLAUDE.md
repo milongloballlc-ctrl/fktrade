@@ -11,6 +11,12 @@ below). There is still no database and no build step for the site itself — car
 state lives entirely in the browser's `localStorage`; the one server-side piece is
 a single Netlify Function that talks to Stripe. No JS frameworks; vanilla JS only.
 
+Separately, a small Python pipeline under `scripts/` (see "Amazon sync
+pipeline" below) keeps product data and photos in step with FKTrade's real
+Amazon seller account via SP-API. This is a build-time/maintenance tool, not
+part of the deployed site — it edits the HTML files that get deployed, but
+doesn't run in the browser.
+
 Hosted as plain static files (GitHub Pages / Netlify). A push to the main branch
 triggers automatic redeploy.
 
@@ -36,6 +42,13 @@ triggers automatic redeploy.
 - `favicon.svg` — FK monogram favicon, linked from every page's `<head>`
 - `404.html` — not-found page in site style; Netlify serves this automatically
   for unmatched routes because of the exact filename
+- `scripts/fetch_images.py` — Stage 1 of the Amazon sync pipeline: fetches real
+  product photos from SP-API; see "Amazon sync pipeline" below
+- `listings.txt` — Amazon active listings report (tab-separated); source data
+  for the sync pipeline, **not committed** (contains live account identifiers)
+- `.env.example` — documents the SP-API credential names; `.env` itself is
+  gitignored and must never be committed
+- `requirements.txt` — Python dependencies for the `scripts/` pipeline (`requests`)
 
 There is no framework and no templating; every page is standalone HTML. `js/cart.js`
 is the one shared script, included via `<script src="js/cart.js" defer></script>`
@@ -267,6 +280,59 @@ hidden with `.visually-hidden` (clipped to 1x1px, not `display:none`) rather tha
 the old `.hidden` class — some bots specifically skip `display:none` fields, which
 would defeat the honeypot. Use `.visually-hidden` (not `.hidden`, which no longer
 exists in `styles.css`) for anything that must stay in the DOM and off-screen.
+
+## Amazon sync pipeline
+Two Python scripts under `scripts/` (run manually today; `sync_store.py` is
+planned to be scheduled — see below) keep the site in step with FKTrade's live
+Amazon seller account, driven by the SP-API. Both share the same credential
+setup:
+
+**Credentials** — `LWA_CLIENT_ID`, `LWA_CLIENT_SECRET`, `SP_API_REFRESH_TOKEN`.
+Copy `.env.example` to `.env` and fill in real values for local runs; `.env` is
+gitignored and must **never** be committed. In CI the same three names are set
+as GitHub Actions repository secrets — the scripts read `os.environ` either way
+and only fall back to `.env` for a name that isn't already set, so one code
+path works in both places. Install dependencies with `pip install -r
+requirements.txt` (currently just `requests`).
+
+**`scripts/fetch_images.py`** (Stage 1 — done, run manually as needed) fetches
+real product photos from Amazon to replace the placeholder gray-tile images
+that were generated when the 22 current `product-<slug>.html` pages were first
+built from `listings.txt`:
+1. Parses `listings.txt` (tab-separated Amazon active listings report; kept
+   locally, gitignored, never committed — see "File map") and every
+   `product-<slug>.html` page's `<h1>` name.
+2. Matches each product page to a listings row by token overlap between the
+   two names (`MATCH_MIN_SCORE` / `MATCH_MIN_MARGIN` constants at the top of
+   the script). A match is only accepted when it's both strong (≥75% overlap)
+   and clearly ahead of the next-best candidate (≥15 point margin) — anything
+   weaker or ambiguous is printed and skipped rather than guessed. Don't lower
+   these thresholds to force a match; fix the underlying name mismatch instead
+   (e.g. by editing the product page's `<h1>` closer to the listing title).
+   When two candidates are near-identical because they're pack-size variants
+   of the same product (e.g. "60-Count" vs "180-Count"), a secondary signal
+   (`_extract_count` / `_COUNT_BONUS`) reads the quantity out of both names and
+   uses it to break the tie — this only activates when both sides carry a
+   recognizable count, so it never touches unrelated products.
+3. For each matched ASIN, calls SP-API Catalog Items `getCatalogItem`
+   (2022-04-01, `includedData=images`), picks the largest `MAIN`-variant image,
+   and saves it to `img/<slug>.jpg`, overwriting whatever was there. Paced at
+   roughly 2 requests/second with exponential backoff on HTTP 429.
+4. Stamps the matched product page with `data-asin="<ASIN>"` on its
+   `.product-info` div (Stage 2 will use this to detect price changes and
+   delistings — see below) and re-confirms the `.product-gallery` `<img>`,
+   the Add to Cart button's `data-image`, and `og:image` all point at
+   `img/<slug>.jpg` (normally already true, but the script makes it so
+   idempotently rather than assuming it).
+
+Run it with `python3 scripts/fetch_images.py`; it prints a fetched/skipped/
+failed summary at the end. It never touches `catalog.html`/`index.html` markup
+beyond re-confirming image paths for slugs it just fetched — no cards are
+added or removed by this script.
+
+**Excluding a product from the pipeline**: not yet built — Stage 2's
+`scripts/sync_exclude.txt` (a plain list of ASINs, one per line, with a
+comment header) will be the mechanism once it exists.
 
 ## Duplication traps — always sync these
 1. Header nav and footer are copy-pasted in ALL html files. Any change to the menu,
