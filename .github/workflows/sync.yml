@@ -1,0 +1,47 @@
+name: Store sync
+
+on:
+  workflow_dispatch: {}
+  # Runs every 6 hours once re-enabled. Kept disabled for now because every
+  # pushed commit triggers a Netlify deploy, and the site is on a Netlify
+  # plan with limited deploy credits. Enable after upgrading the Netlify
+  # plan by uncommenting the block below.
+  # schedule:
+  #   - cron: '0 */6 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run store sync
+        env:
+          LWA_CLIENT_ID: ${{ secrets.LWA_CLIENT_ID }}
+          LWA_CLIENT_SECRET: ${{ secrets.LWA_CLIENT_SECRET }}
+          SP_API_REFRESH_TOKEN: ${{ secrets.SP_API_REFRESH_TOKEN }}
+        run: python3 scripts/sync_store.py
+
+      - name: Commit and push changes (only if something changed)
+        run: |
+          git config user.name "fktrade-sync-bot"
+          git config user.email "actions@github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes from sync — skipping commit and push."
+          else
+            git commit -m "Store sync: $(date -u +%Y-%m-%d)"
+            git push
+          fi

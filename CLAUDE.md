@@ -44,8 +44,15 @@ triggers automatic redeploy.
   for unmatched routes because of the exact filename
 - `scripts/fetch_images.py` — Stage 1 of the Amazon sync pipeline: fetches real
   product photos from SP-API; see "Amazon sync pipeline" below
+- `scripts/sync_store.py` — Stage 2: ongoing new/price/delisting sync against
+  a live SP-API listings report; see "Amazon sync pipeline" below
+- `scripts/sync_exclude.txt` — ASINs (one per line) that `sync_store.py` must
+  never touch
+- `.github/workflows/sync.yml` — runs `sync_store.py` on manual dispatch (the
+  6-hourly schedule is written but commented out); see "GitHub Actions workflow"
 - `listings.txt` — Amazon active listings report (tab-separated); source data
-  for the sync pipeline, **not committed** (contains live account identifiers)
+  for Stage 1 only, **not committed** (contains live account identifiers) —
+  Stage 2 pulls its own report live from SP-API instead of reading this file
 - `.env.example` — documents the SP-API credential names; `.env` itself is
   gitignored and must never be committed
 - `requirements.txt` — Python dependencies for the `scripts/` pipeline (`requests`)
@@ -282,10 +289,12 @@ would defeat the honeypot. Use `.visually-hidden` (not `.hidden`, which no longe
 exists in `styles.css`) for anything that must stay in the DOM and off-screen.
 
 ## Amazon sync pipeline
-Two Python scripts under `scripts/` (run manually today; `sync_store.py` is
-planned to be scheduled — see below) keep the site in step with FKTrade's live
-Amazon seller account, driven by the SP-API. Both share the same credential
-setup:
+Two Python scripts under `scripts/` keep the site in step with FKTrade's live
+Amazon seller account, driven by the SP-API. `fetch_images.py` is run manually
+as needed; `sync_store.py` is meant to run on a schedule via GitHub Actions,
+but that schedule is currently **disabled** (see "GitHub Actions workflow"
+below) — for now it only runs manually, either locally or via the workflow's
+"Run workflow" button. Both share the same credential setup:
 
 **Credentials** — `LWA_CLIENT_ID`, `LWA_CLIENT_SECRET`, `SP_API_REFRESH_TOKEN`.
 Copy `.env.example` to `.env` and fill in real values for local runs; `.env` is
@@ -330,9 +339,86 @@ failed summary at the end. It never touches `catalog.html`/`index.html` markup
 beyond re-confirming image paths for slugs it just fetched — no cards are
 added or removed by this script.
 
-**Excluding a product from the pipeline**: not yet built — Stage 2's
-`scripts/sync_exclude.txt` (a plain list of ASINs, one per line, with a
-comment header) will be the mechanism once it exists.
+**`scripts/sync_store.py`** (Stage 2) is the ongoing sync: it pulls a fresh
+listings report straight from SP-API (not `listings.txt`, which is a one-time
+snapshot used only by Stage 1) and reconciles the site against it.
+
+1. Requests a `GET_MERCHANT_LISTINGS_ALL_DATA` report via the Reports API
+   (`POST /reports/2021-06-30/reports`), polls `GET .../reports/{reportId}`
+   every 15s until `processingStatus` is `DONE` (raises on `CANCELLED`/`FATAL`,
+   times out after 10 minutes), then downloads and gunzips the report document.
+   This is the same tab-separated format as `listings.txt`.
+2. Builds `{asin: page}` from every `product-<slug>.html` that carries a
+   `data-asin` (i.e. everything Stage 1 has touched) and compares it against
+   the report, purely by ASIN presence/absence and price:
+   - **New** — ASIN in the report but no matching `data-asin` on the site.
+   - **Price change** — ASIN on both sides with a price differing by ≥ $0.01.
+   - **Delisted** — ASIN on the site but absent from the fresh report.
+   Note this is presence-based, not status-based: an ASIN marked `Inactive` in
+   the report but still present is left alone (Inactive often just means
+   temporarily out of stock, not removed) — only true absence counts as
+   delisted. If that turns out to be too lax in practice, tighten it here
+   rather than papering over it downstream.
+3. **New products**: the ASIN's title is slugified (`slugify()` — lowercased,
+   punctuation stripped, first 6 words, de-duplicated against existing slugs),
+   then one combined Catalog Items call (`includedData=productTypes,summaries,
+   attributes,images`) supplies everything else:
+   - **Category** — `PRODUCT_TYPE_TO_CATEGORY` maps Amazon's `productType`
+     (e.g. `SKIN_CARE_PRODUCT`) to one of the six short site labels. A
+     `productType` outside this table is logged under "unmapped" and the
+     product is **not** created — extend the table rather than guessing.
+   - **Description** — first `bullet_point` attribute if present, else
+     `"{itemName}, sourced through FKTrade LLC's supplier network."`, else a
+     generic `"A product from FKTrade LLC's {Category} range."` Bullet points
+     are run through `_clean_bullet_text()` first, which strips a leading
+     ALL-CAPS marketing label (e.g. `"ADAPTS TO YOUR SHADE: "`) and truncates
+     on a sentence or word boundary rather than mid-word — but it's a
+     heuristic, not a tone filter: it won't catch every hype phrase or
+     unproven claim in the remaining text (e.g. health claims like "combats
+     hair loss"), so **always read new auto-generated descriptions before
+     treating a sync as done** and rewrite anything that still reads like ad
+     copy or makes a claim we can't stand behind. Deliberately conservative
+     otherwise: the generated `.spec-list` only ever gets `SKU` and `Category`
+     rows, never fabricated Material/Dimensions/Color, since Amazon's
+     attribute schema is too inconsistent across product types to trust for
+     factual claims (see "Tone and content rules").
+   - **Image** — same largest-`MAIN`-variant logic as Stage 1.
+   - The page is generated from `PRODUCT_PAGE_TEMPLATE` in the script (kept in
+     sync with the real page structure by hand — if the established product
+     page layout changes, update this template too), and a card is appended
+     to `catalog.html`'s `#prodGrid`. New products are **not** added to
+     `index.html`'s featured section — that stays a manual/curated choice.
+4. **Price changes** update `data-price` (and the visible `$XX.XX`) on the
+   product page, its `catalog.html` card, and its `index.html` card if it's
+   featured there.
+5. **Delisted** products have their card removed from `catalog.html` and
+   `index.html` (if present) and the page file deleted. Images in `img/` are
+   left in place rather than deleted.
+6. `--dry-run` prints the full plan (new/unmapped/price-changes/delisted) and
+   writes nothing — it still makes the read-only report and Catalog Items
+   calls, since an accurate plan for new ASINs needs their category and
+   description. Always run `--dry-run` first after changing this script.
+
+**Excluding a product from the pipeline**: list its ASIN in
+`scripts/sync_exclude.txt` (one per line, `#` comments allowed). Excluded
+ASINs are completely invisible to `sync_store.py` — never created,
+price-updated, or removed, regardless of what the report says.
+
+## GitHub Actions workflow (.github/workflows/sync.yml)
+Runs `sync_store.py` (a real run, not `--dry-run`) and commits/pushes any
+changed files. Currently **`workflow_dispatch` only** — the 6-hourly
+`schedule` trigger is written into the file but commented out, with a note to
+re-enable it once the Netlify plan is upgraded (every pushed commit here
+triggers a Netlify deploy, and deploys are credit-limited on the current
+plan). Trigger a run manually from the Actions tab until then.
+
+The commit-and-push step diffs the working tree first (`git diff --cached
+--quiet`) and skips the commit and push entirely when the sync made no
+changes — most runs, once the catalog stabilizes, should produce nothing to
+commit. Commits are authored as `fktrade-sync-bot` with message `Store sync:
+<UTC date>`. `permissions: contents: write` is the only permission granted,
+and the three SP-API credentials are read from repository secrets (Settings →
+Secrets and variables → Actions) under the same names used in `.env`.
 
 ## Duplication traps — always sync these
 1. Header nav and footer are copy-pasted in ALL html files. Any change to the menu,

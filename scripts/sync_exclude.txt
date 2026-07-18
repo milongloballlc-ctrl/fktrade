@@ -1,0 +1,23 @@
+# ASINs listed here (one per line) are completely ignored by
+# scripts/sync_store.py — never auto-created, price-updated, or removed,
+# regardless of what the Amazon listings report says. Lines starting with
+# '#' are comments and are skipped. Add a comment above an ASIN noting why
+# it's excluded if the reason isn't obvious.
+
+# Reusable party cup — not one of our six site categories, no reasonable fit.
+B0CQ3X7W1R
+
+# Ingestible supplement carrying a real, controversial public figure's
+# personal brand name — listing it implies a specific distribution
+# relationship worth confirming before it goes on a due-diligence-facing site.
+B0F6Q2ZHL5
+
+# Officially licensed MLB merchandise — reselling requires a league license
+# we have no evidence FKTrade holds.
+B003W0UUX2
+
+# OEM refrigerator repair part — no reasonable fit among our six categories.
+B0D8ZQJF81
+
+# Pool/spa water treatment chemicals — no reasonable fit among our six categories.
+B07YS4PH4L
